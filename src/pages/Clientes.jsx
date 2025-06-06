@@ -37,19 +37,19 @@ const Clientes = () => {
   
   // Leer clientes desde Firestore o caché al cargar
   useEffect(() => {
+    async function fetchClientes() {
+      try {
+        const locations = await import('../services/locations.js').then(m => m.locationsService.getAllLocations());
+        setClientes(locations);
+        localStorage.setItem('clientes', JSON.stringify(locations));
+      } catch (err) {
+        setClientes([]);
+      }
+    }
     const cachedClientes = localStorage.getItem('clientes');
     if (cachedClientes) {
       setClientes(JSON.parse(cachedClientes));
     } else {
-      async function fetchClientes() {
-        try {
-          const locations = await import('../services/locations.js').then(m => m.locationsService.getAllLocations());
-          setClientes(locations);
-          localStorage.setItem('clientes', JSON.stringify(locations));
-        } catch (err) {
-          setClientes([]);
-        }
-      }
       fetchClientes();
     }
   }, []);

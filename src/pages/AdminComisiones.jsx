@@ -8,6 +8,8 @@ const AdminComisiones = () => {
   const [ventas, setVentas] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [usuarioFiltro, setUsuarioFiltro] = useState('');
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
   const [error, setError] = useState('');
   const [alerta, setAlerta] = useState('');
 
@@ -29,8 +31,23 @@ const AdminComisiones = () => {
     fetchVentas();
   }, []);
 
-  // Filtrar ventas pagadas pero comisión no pagada
-  const comisionesPorPagar = ventas.filter(v => v.pago === true && v.comision > 0 && !v.comisionPagada && (!usuarioFiltro || v.usuarioEmail === usuarioFiltro));
+  // Filtrar ventas pagadas pero comisión no pagada, y por fecha
+  const comisionesPorPagar = ventas.filter(v => {
+    const usuarioOk = !usuarioFiltro || v.usuarioEmail === usuarioFiltro;
+    let fechaOk = true;
+    if (fechaInicio) {
+      const fechaVenta = v.fecha ? new Date(v.fecha) : null;
+      const inicio = new Date(fechaInicio);
+      if (fechaVenta && fechaVenta < inicio) fechaOk = false;
+    }
+    if (fechaFin) {
+      const fechaVenta = v.fecha ? new Date(v.fecha) : null;
+      const fin = new Date(fechaFin);
+      fin.setDate(fin.getDate() + 1); // incluir el día completo
+      if (fechaVenta && fechaVenta >= fin) fechaOk = false;
+    }
+    return v.pago === true && v.comision > 0 && !v.comisionPagada && usuarioOk && fechaOk;
+  });
   const totalComisionesPorPagar = comisionesPorPagar.reduce((sum, v) => sum + (parseFloat(v.comision) || 0), 0);
 
   // Comisiones por usuario
@@ -84,7 +101,7 @@ const AdminComisiones = () => {
         </Col>
       </Row>
       <Row className="mb-3">
-        <Col md={4}>
+        <Col md={3}>
           <Form.Select value={usuarioFiltro} onChange={e => setUsuarioFiltro(e.target.value)}>
             <option value="">Todos los usuarios</option>
             {usuarios.map(u => (
@@ -92,7 +109,13 @@ const AdminComisiones = () => {
             ))}
           </Form.Select>
         </Col>
-        <Col md={8} className="text-end">
+        <Col md={3}>
+          <Form.Control type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} placeholder="Desde" />
+        </Col>
+        <Col md={3}>
+          <Form.Control type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} placeholder="Hasta" />
+        </Col>
+        <Col md={3} className="text-end">
           <Button variant="outline-success" onClick={marcarTodasComoPagadas} disabled={comisionesPorUsuario.length === 0}>
             <FiCheckCircle className="me-2" /> Marcar todas como pagadas
           </Button>
