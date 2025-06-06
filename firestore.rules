@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Desarrollo: Permitir todo acceso (¡NO USAR EN PRODUCCIÓN!)
+    match /{document=**} {
+      allow read, write: if true;
+    }
+
+    // Estas reglas se pueden habilitar cuando esté listo para producción
+    // match /delivery_locations/{locationId} {
+    //   allow read: if request.auth != null;
+    //   allow write: if request.auth != null;
+    // }
+  }
+}
