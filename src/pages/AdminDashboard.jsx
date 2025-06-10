@@ -22,6 +22,10 @@ const AdminDashboard = () => {
   const [ventaExpandidaId, setVentaExpandidaId] = useState(null);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const [bonusOn, setBonusOn] = useState(() => {
+    const saved = localStorage.getItem('bonusOn');
+    return saved === null ? false : saved === 'true';
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -48,6 +52,10 @@ const AdminDashboard = () => {
     };
     fetchVentas();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('bonusOn', bonusOn);
+  }, [bonusOn]);
 
   // Filtros combinados
   const ventasFiltradas = ventas.filter(v => {
@@ -210,6 +218,14 @@ const AdminDashboard = () => {
       <Card className="shadow-sm mb-4">
         <Card.Body>
           <div className="d-flex align-items-center mb-3">
+            <Form.Check 
+              type="switch"
+              id="bonus-switch"
+              label={<span style={{fontWeight:600}}>{`Comisiones: ${bonusOn ? 'ON' : 'OFF'}`}</span>}
+              checked={bonusOn}
+              onChange={() => setBonusOn(v => !v)}
+              style={{marginRight:16, fontSize:18}}
+            />
             <FiFileText className="me-2 text-primary" />
             <h5 className="mb-0">Ventas Registradas</h5>
             <div className="ms-auto d-flex align-items-center gap-2" style={{ width: 'auto' }}>

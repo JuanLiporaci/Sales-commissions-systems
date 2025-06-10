@@ -82,6 +82,10 @@ const Ventas = () => {
   const [guardandoDireccion, setGuardandoDireccion] = useState(false);
   const [errorDireccion, setErrorDireccion] = useState("");
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const [bonusOn] = useState(() => {
+    const saved = localStorage.getItem('bonusOn');
+    return saved === null ? false : saved === 'true';
+  });
 
   // Nueva función: cargar ventas desde Firestore por usuario
   const cargarVentasFirestore = async (usuarioEmail) => {
@@ -260,10 +264,10 @@ const Ventas = () => {
 
   // Cambia la comisión base a 20%
   const comisionBase = 0.20;
-  const bonusEfectivo = cumpleBonusEfectivo ? 0.01 : 0;
-  const bonusContado = cumpleBonusContado ? 0.01 : 0;
-  const bonusTresMillas = cumpleBonusTresMillas ? 0.01 : 0;
-  const bonusForecastRaw = Number(localStorage.getItem('bonusForecast') || 0);
+  const bonusEfectivo = bonusOn ? (cumpleBonusEfectivo ? 0.01 : 0) : 0;
+  const bonusContado = bonusOn ? (cumpleBonusContado ? 0.01 : 0) : 0;
+  const bonusTresMillas = bonusOn ? (cumpleBonusTresMillas ? 0.01 : 0) : 0;
+  const bonusForecastRaw = bonusOn ? Number(localStorage.getItem('bonusForecast') || 0) : 0;
   const comisionRate = comisionBase + bonusEfectivo + bonusContado + bonusTresMillas + bonusForecastRaw * 0.01;
 
   // Función para obtener el costo correcto según el usuario
@@ -933,28 +937,30 @@ const Ventas = () => {
         <div className="dashboard-content">
           <Container fluid>
             {/* LEYENDA INFORMATIVA DE COMISIONES Y % */}
-            <Alert variant="info" className="mb-4 shadow-sm border-0">
-              <Alert.Heading className="d-flex align-items-center">
-                <FiDollarSign className="me-2 text-primary" /> ¿Cómo puedes subir tu % de comisiones?
-              </Alert.Heading>
-              <ul className="mb-2">
-                <li>
-                  <strong>80% de tus ventas son en efectivo:</strong> Incentiva a tus clientes a pagar en efectivo para aumentar tu porcentaje de comisión (+1%).
-                </li>
-                <li>
-                  <strong>80% de tus ventas son de contado:</strong> Si la mayoría de tus ventas son de contado (no a crédito), tu comisión sube (+1%).
-                </li>
-                <li>
-                  <strong>80% de tus clientes están en un radio de 3 millas:</strong> Mantén tu cartera de clientes cerca para optimizar entregas y mejorar tu comisión (+1%).
-                </li>
-                <li>
-                  <strong>Forecast de pedidos exactos:</strong> Si logras anticipar con exactitud los pedidos de tus clientes (por ejemplo: "Auto repair necesita 3 cajas de 15w-40 cada mes"), tu comisión aumentará. ¡Pronto podrás registrar tus forecasts desde aquí! (+1%).
-                </li>
-              </ul>
-              <div className="small text-muted">
-                Cada bonus suma 1% a tu comisión. Si cumples todos, ¡puedes llegar hasta un 24% de comisión mensual!
-              </div>
-            </Alert>
+            {bonusOn && (
+              <Alert variant="info" className="mb-4 shadow-sm border-0">
+                <Alert.Heading className="d-flex align-items-center">
+                  <FiDollarSign className="me-2 text-primary" /> ¿Cómo puedes subir tu % de comisiones?
+                </Alert.Heading>
+                <ul className="mb-2">
+                  <li>
+                    <strong>80% de tus ventas son en efectivo:</strong> Incentiva a tus clientes a pagar en efectivo para aumentar tu porcentaje de comisión (+1%).
+                  </li>
+                  <li>
+                    <strong>80% de tus ventas son de contado:</strong> Si la mayoría de tus ventas son de contado (no a crédito), tu comisión sube (+1%).
+                  </li>
+                  <li>
+                    <strong>80% de tus clientes están en un radio de 3 millas:</strong> Mantén tu cartera de clientes cerca para optimizar entregas y mejorar tu comisión (+1%).
+                  </li>
+                  <li>
+                    <strong>Forecast de pedidos exactos:</strong> Si logras anticipar con exactitud los pedidos de tus clientes (por ejemplo: "Auto repair necesita 3 cajas de 15w-40 cada mes"), tu comisión aumentará. ¡Pronto podrás registrar tus forecasts desde aquí! (+1%).
+                  </li>
+                </ul>
+                <div className="small text-muted">
+                  Cada bonus suma 1% a tu comisión. Si cumples todos, ¡puedes llegar hasta un 24% de comisión mensual!
+                </div>
+              </Alert>
+            )}
 
             {mostrarAlerta && (
               <Alert 
@@ -1343,25 +1349,27 @@ const Ventas = () => {
                       </div>
                     </div>
                     {/* Porcentaje de ventas en efectivo y bonus */}
-                    <div className="mt-3 px-3">
-                      <div className="small mb-1">
-                        <strong>% de ventas en efectivo:</strong> {porcentajeEfectivo.toFixed(1)}%
+                    {bonusOn && (
+                      <div className="mt-3 px-3">
+                        <div className="small mb-1">
+                          <strong>% de ventas en efectivo:</strong> {porcentajeEfectivo.toFixed(1)}%
+                        </div>
+                        <div className="small mb-1">
+                          <strong>% de ventas de contado:</strong> {porcentajeContado.toFixed(1)}%
+                        </div>
+                        <div className="small fw-bold mb-1" style={{ textAlign: 'left', paddingLeft: 8 }}>
+                          {textoForecastBonus}
+                        </div>
+                        <div className="small fw-bold mb-2" style={{ textAlign: 'left', paddingLeft: 8 }}>
+                          {textoClientesCercanos}
+                        </div>
+                        {mensajeBonus && (
+                          <Alert variant="success" className="py-2 px-3 mb-0 text-center fw-bold">
+                            {mensajeBonus}
+                          </Alert>
+                        )}
                       </div>
-                      <div className="small mb-1">
-                        <strong>% de ventas de contado:</strong> {porcentajeContado.toFixed(1)}%
-                      </div>
-                      <div className="small fw-bold mb-1" style={{ textAlign: 'left', paddingLeft: 8 }}>
-                        {textoForecastBonus}
-                      </div>
-                      <div className="small fw-bold mb-2" style={{ textAlign: 'left', paddingLeft: 8 }}>
-                        {textoClientesCercanos}
-                      </div>
-                      {mensajeBonus && (
-                        <Alert variant="success" className="py-2 px-3 mb-0 text-center fw-bold">
-                          {mensajeBonus}
-                        </Alert>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               </Col>
