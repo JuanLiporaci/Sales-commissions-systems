@@ -27,7 +27,7 @@ import { locationsService } from '../services/locations.js';
 import quickBooksService from '../services/quickbooks.js';
 import LocationImporter from '../components/LocationImporter.jsx';
 import { auth } from '../lib/firebase.ts';
-import * as XLSX from 'xlsx';
+import { exportArrayToExcel } from '../utils/excelExport.js';
 
 const Locations = () => {
   const navigate = useNavigate();
@@ -127,19 +127,15 @@ const Locations = () => {
     setShowImporter(false);
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (locations.length === 0) return;
     // Definir los encabezados y los datos, incluyendo el identificador del vendedor
     const headers = ['name', 'address', 'city', 'state', 'zipCode', 'contactName', 'contactPhone', 'notes', 'vendedorIdentificador'];
     const data = locations.map(location => headers.map(field => location[field] || ''));
     // Agregar encabezados como primera fila
     data.unshift(headers);
-    // Crear hoja y libro de Excel
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Ubicaciones');
     // Generar archivo Excel
-    XLSX.writeFile(workbook, `ubicaciones_entrega_${new Date().toISOString().split('T')[0]}.xlsx`);
+    await exportArrayToExcel(data, `ubicaciones_entrega_${new Date().toISOString().split('T')[0]}.xlsx`, 'Ubicaciones');
   };
 
   const importFromQuickBooks = async () => {

@@ -4,7 +4,7 @@ import { db } from '../lib/firebase';
 import { collection, getDocs, orderBy, query, updateDoc, doc } from 'firebase/firestore';
 import Select from 'react-select';
 import { FiUsers, FiFileText, FiSearch, FiDownload } from 'react-icons/fi';
-import * as XLSX from 'xlsx';
+import { exportObjectsToExcel } from '../utils/excelExport.js';
 
 const DespachosAdmin = () => {
   const [ventas, setVentas] = useState([]);
@@ -98,7 +98,7 @@ const DespachosAdmin = () => {
   const opcionesUsuarios = usuarios.map(u => ({ value: u, label: u }));
 
   // Exportar Excel con filtro
-  const exportarExcelConFiltro = () => {
+  const exportarExcelConFiltro = async () => {
     // Formato: Address/Company Name, Address line 1, Internal notes, Código, Driver
     const data = ventasFiltradas.flatMap(venta =>
       (venta.productos || []).map(prod => {
@@ -115,14 +115,11 @@ const DespachosAdmin = () => {
         };
       })
     );
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Despachos');
-    XLSX.writeFile(wb, `despachos_filtrados_${new Date().toISOString().split('T')[0]}.xlsx`);
+    await exportObjectsToExcel(data, `despachos_filtrados_${new Date().toISOString().split('T')[0]}.xlsx`, 'Despachos');
   };
 
   // Exportar Excel formato Despacho
-  const exportarExcelDespacho = () => {
+  const exportarExcelDespacho = async () => {
     // Agrupa productos por venta en una sola fila
     const data = ventasFiltradas.map(venta => {
       const productos = (venta.productos || []).map(prod => `${prod.description || prod.nombre || prod.name || ''}${prod.cantidad ? ` (${prod.cantidad})` : ''}`).join('\n');
@@ -139,20 +136,7 @@ const DespachosAdmin = () => {
         'Notas': venta.notas || ''
       };
     });
-    const ws = XLSX.utils.json_to_sheet(data);
-    // Ajustar celdas para que los saltos de línea se vean en Excel
-    Object.keys(data[0] || {}).forEach((col, idx) => {
-      for (let i = 0; i < data.length; i++) {
-        const cell = ws[String.fromCharCode(65 + idx) + (i + 2)];
-        if (cell && typeof cell.v === 'string' && cell.v.includes('\n')) {
-          cell.v = cell.v.replace(/\\n/g, '\n');
-          cell.t = 's';
-        }
-      }
-    });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Despacho');
-    XLSX.writeFile(wb, `despacho_filtrado_${new Date().toISOString().split('T')[0]}.xlsx`);
+    await exportObjectsToExcel(data, `despacho_filtrado_${new Date().toISOString().split('T')[0]}.xlsx`, 'Despacho');
   };
 
   return (

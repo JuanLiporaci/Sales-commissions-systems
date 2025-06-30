@@ -39,6 +39,7 @@ import {
 import { forecastsService } from '../services/forecasts.js';
 import { salesService } from '../services/sales.ts';
 import { crearVentaAmigable } from "../utils/firestoreUtils";
+import googleSheetsService from '../services/googleSheets.js';
 
 const Ventas = () => {
   const navigate = useNavigate();
@@ -593,6 +594,19 @@ const Ventas = () => {
 
       // Verificar si se ha cumplido algún pronóstico con esta venta
       await verificarCumplimientoPronosticos(ventaCompleta);
+
+      // Enviar datos al Google Sheet
+      if (googleSheetsService.isConfigured()) {
+        console.log('Enviando venta al Google Sheet...');
+        const resultadoSheet = await googleSheetsService.agregarPedido(ventaCompleta);
+        if (resultadoSheet) {
+          console.log('Venta agregada al Google Sheet exitosamente');
+        } else {
+          console.log('No se pudo agregar al Google Sheet, pero la venta se guardó correctamente');
+        }
+      } else {
+        console.log('Google Sheets no está configurado. Saltando integración.');
+      }
     } catch (err) {
       console.error('Error guardando venta en Firestore:', err);
       alert('Error guardando venta en Firestore: ' + err.message);

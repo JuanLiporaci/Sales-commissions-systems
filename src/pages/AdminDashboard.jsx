@@ -3,7 +3,7 @@ import { Container, Row, Col, Card, Table, Alert, Button, Form, Modal } from 're
 import { FiBarChart2, FiDollarSign, FiUsers, FiFileText, FiDownload, FiChevronDown, FiEye, FiTrendingUp, FiAlertTriangle } from 'react-icons/fi';
 import { db, auth } from '../lib/firebase';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
-import * as XLSX from 'xlsx';
+import { exportArrayToExcel } from '../utils/excelExport.js';
 import Select from 'react-select';
 import { signOut } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
@@ -85,7 +85,7 @@ const AdminDashboard = () => {
   const comisionesTotales = ventasPagadas.reduce((sum, v) => sum + (parseFloat(v.comision) || 0), 0);
 
   // Función para exportar a Excel
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (ventasFiltradas.length === 0) return;
     // Encabezados generales de venta
     const headersVenta = ['Fecha', 'Usuario', 'Identificador Vendedor', 'Cliente', 'Monto', 'Comisión', 'Profit', 'Fee Venta'];
@@ -130,10 +130,7 @@ const AdminDashboard = () => {
       profitTotales.toFixed(2),
       cuentasPorCobrar.toFixed(2)
     ]);
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Ventas');
-    XLSX.writeFile(workbook, `ventas_registradas_${new Date().toISOString().split('T')[0]}.xlsx`);
+    await exportArrayToExcel(data, `ventas_registradas_${new Date().toISOString().split('T')[0]}.xlsx`, 'Ventas');
   };
 
   // Opciones para react-select
@@ -239,7 +236,7 @@ const AdminDashboard = () => {
                   placeholder="Seleccionar usuarios"
                   noOptionsMessage={() => 'Sin usuarios'}
                   styles={{
-                    control: (base, state) => ({
+                    control: (base) => ({
                       ...base,
                       minHeight: 36,
                       border: '2px solid #007bff',
@@ -344,7 +341,15 @@ const AdminDashboard = () => {
                     <td>
                       {venta.pago === false
                         ? <span style={{color:'#b8860b',fontWeight:600}}>No pagada</span>
-                        : <FiEye style={{cursor: 'pointer'}} onClick={() => handleAbrirModal(venta)} />}
+                        : (
+                          <div className="d-flex gap-2">
+                            <FiEye style={{cursor: 'pointer'}} onClick={() => handleAbrirModal(venta)} />
+                            <FiChevronDown 
+                              style={{cursor: 'pointer', transform: ventaExpandidaId === venta.id ? 'rotate(180deg)' : 'rotate(0deg)'}} 
+                              onClick={() => handleExpandirVenta(venta.id)} 
+                            />
+                          </div>
+                        )}
                     </td>
                   </tr>,
                   ventaExpandidaId === venta.id && (
