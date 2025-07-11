@@ -3,15 +3,57 @@
  * Servicio para enviar pedidos/ventas automáticamente a Google Sheets
  */
 
-// Importar las credenciales desde el archivo JSON
-import firebaseCredentials from '../../firebase-credentials.json';
-
 class GoogleSheetsService {
   constructor() {
-    this.spreadsheetId = import.meta.env.SPREADSHEET_ID;
-    this.credentials = firebaseCredentials;
+    this.spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID;
+    
+    // Obtener credenciales desde variables de entorno
+    this.credentials = this.getCredentialsFromEnv();
     this.accessToken = null;
     this.tokenExpiry = null;
+  }
+
+  /**
+   * Obtener credenciales desde variables de entorno
+   */
+  getCredentialsFromEnv() {
+    try {
+      // Usar variables de entorno para producción
+      const privateKey = import.meta.env.VITE_FIREBASE_PRIVATE_KEY;
+      const clientEmail = import.meta.env.VITE_FIREBASE_CLIENT_EMAIL;
+      const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+
+      if (!privateKey || !clientEmail || !projectId) {
+        console.log('Variables de entorno de Firebase no configuradas');
+        return null;
+      }
+
+      // Decodificar la clave privada si está en base64
+      let decodedPrivateKey = privateKey;
+      try {
+        // Si la clave viene en base64 (común en variables de entorno)
+        if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+          decodedPrivateKey = atob(privateKey);
+        }
+      } catch (e) {
+        // Si no se puede decodificar, usar tal como viene
+        decodedPrivateKey = privateKey;
+      }
+
+      return {
+        type: "service_account",
+        project_id: projectId,
+        private_key: decodedPrivateKey,
+        client_email: clientEmail,
+        client_id: import.meta.env.VITE_FIREBASE_CLIENT_ID || "",
+        auth_uri: "https://accounts.google.com/o/oauth2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs"
+      };
+    } catch (error) {
+      console.error('Error obteniendo credenciales:', error);
+      return null;
+    }
   }
 
   /**
