@@ -136,4 +136,13 @@ export const salesService = {
       throw error;
     }
   },
+
+  async actualizarVenta(idVenta: string, datos: any) {
+    try {
+      await updateDoc(doc(db, 'ventas', idVenta), datos);
+    } catch (error) {
+      console.error('Error updating sale:', error);
+      throw error;
+    }
+  },
 }; 

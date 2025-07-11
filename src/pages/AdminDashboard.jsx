@@ -17,6 +17,8 @@ const AdminDashboard = () => {
   const [usuariosSeleccionados, setUsuariosSeleccionados] = useState([]);
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
+  const [clientes, setClientes] = useState([]);
+  const [clientesSeleccionados, setClientesSeleccionados] = useState([]);
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [ventaExpandidaId, setVentaExpandidaId] = useState(null);
@@ -45,6 +47,9 @@ const AdminDashboard = () => {
         // Extraer usuarios únicos
         const usuariosUnicos = Array.from(new Set(ventasFirestore.map(v => v.usuarioEmail)));
         setUsuarios(usuariosUnicos);
+        // Extraer clientes únicos
+        const clientesUnicos = Array.from(new Set(ventasFirestore.map(v => v.cliente).filter(Boolean)));
+        setClientes(clientesUnicos);
       } catch (err) {
         setError('Error cargando ventas de Firestore');
       }
@@ -60,6 +65,7 @@ const AdminDashboard = () => {
   // Filtros combinados
   const ventasFiltradas = ventas.filter(v => {
     const usuarioOk = usuariosSeleccionados.length === 0 || usuariosSeleccionados.includes(v.usuarioEmail);
+    const clienteOk = clientesSeleccionados.length === 0 || clientesSeleccionados.includes(v.cliente);
     let fechaOk = true;
     if (fechaInicio) {
       const fechaVenta = v.fecha ? new Date(v.fecha) : null;
@@ -72,7 +78,7 @@ const AdminDashboard = () => {
       fin.setDate(fin.getDate() + 1);
       if (fechaVenta && fechaVenta >= fin) fechaOk = false;
     }
-    return usuarioOk && fechaOk;
+    return usuarioOk && clienteOk && fechaOk;
   });
 
   // Lógica de sumatorias:
@@ -135,6 +141,7 @@ const AdminDashboard = () => {
 
   // Opciones para react-select
   const opcionesUsuarios = usuarios.map(u => ({ value: u, label: u }));
+  const opcionesClientes = clientes.map(c => ({ value: c, label: c }));
 
   const handleAbrirModal = (venta) => {
     setVentaSeleccionada(venta);
@@ -303,6 +310,55 @@ const AdminDashboard = () => {
                 }}
                 placeholder="Hasta"
               />
+            </div>
+          </div>
+          <div className="d-flex align-items-center mb-3">
+            <div className="ms-auto d-flex align-items-center gap-2" style={{ width: 'auto' }}>
+              <span style={{ color: '#888', fontWeight: 500, marginRight: 12, minWidth: 120 }}>Filtrar clientes</span>
+              <div style={{ width: 340, marginRight: 16 }}>
+                <Select
+                  isMulti
+                  options={opcionesClientes}
+                  value={opcionesClientes.filter(opt => clientesSeleccionados.includes(opt.value))}
+                  onChange={selected => setClientesSeleccionados(selected ? selected.map(opt => opt.value) : [])}
+                  placeholder="Seleccionar clientes"
+                  noOptionsMessage={() => 'Sin clientes'}
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      minHeight: 36,
+                      border: '2px solid #28a745',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                      fontWeight: 600,
+                      color: '#222',
+                      background: 'rgba(255,255,255,0.95)',
+                      cursor: 'pointer',
+                    }),
+                    multiValue: (base) => ({
+                      ...base,
+                      background: '#d4edda',
+                      color: '#28a745',
+                      fontWeight: 700
+                    }),
+                    multiValueLabel: (base) => ({
+                      ...base,
+                      color: '#28a745',
+                      fontWeight: 700
+                    }),
+                    multiValueRemove: (base) => ({
+                      ...base,
+                      color: '#28a745',
+                      ':hover': { backgroundColor: '#28a745', color: 'white' }
+                    }),
+                    placeholder: (base) => ({
+                      ...base,
+                      color: '#888',
+                      fontWeight: 500
+                    })
+                  }}
+                  isClearable
+                />
+              </div>
             </div>
             <Button variant="outline-success" size="sm" className="ms-3" onClick={exportToExcel} disabled={ventasFiltradas.length === 0}>
               <FiDownload className="me-1" /> Exportar Excel

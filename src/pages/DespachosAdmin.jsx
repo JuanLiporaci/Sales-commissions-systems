@@ -12,6 +12,8 @@ const DespachosAdmin = () => {
   const [usuariosSeleccionados, setUsuariosSeleccionados] = useState([]);
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
+  const [clientes, setClientes] = useState([]);
+  const [clientesSeleccionados, setClientesSeleccionados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [driverOptions, setDriverOptions] = useState([]);
   const [driverMap, setDriverMap] = useState({});
@@ -30,6 +32,9 @@ const DespachosAdmin = () => {
         // Usuarios únicos de ventas
         const usuariosUnicos = Array.from(new Set(ventasFirestore.map(v => v.usuarioEmail)));
         setUsuarios(usuariosUnicos);
+        // Clientes únicos de ventas
+        const clientesUnicos = Array.from(new Set(ventasFirestore.map(v => v.cliente).filter(Boolean)));
+        setClientes(clientesUnicos);
       } catch (err) {
         setVentas([]);
         setUsuarios([]);
@@ -68,6 +73,7 @@ const DespachosAdmin = () => {
   // Filtros
   const ventasFiltradas = ventas.filter(v => {
     const usuarioOk = usuariosSeleccionados.length === 0 || usuariosSeleccionados.includes(v.usuarioEmail);
+    const clienteOk = clientesSeleccionados.length === 0 || clientesSeleccionados.includes(v.cliente);
     let fechaOk = true;
     if (fechaInicio) {
       const fechaVenta = v.fechaRegistro ? new Date(v.fechaRegistro) : null;
@@ -80,7 +86,7 @@ const DespachosAdmin = () => {
       fin.setDate(fin.getDate() + 1);
       if (fechaVenta && fechaVenta >= fin) fechaOk = false;
     }
-    return usuarioOk && fechaOk;
+    return usuarioOk && clienteOk && fechaOk;
   });
 
   // Handler para cambiar el driver de una venta
@@ -96,6 +102,8 @@ const DespachosAdmin = () => {
 
   // Opciones para react-select de usuarios
   const opcionesUsuarios = usuarios.map(u => ({ value: u, label: u }));
+  // Opciones para react-select de clientes
+  const opcionesClientes = clientes.map(c => ({ value: c, label: c }));
 
   // Exportar Excel con filtro
   const exportarExcelConFiltro = async () => {
@@ -178,6 +186,22 @@ const DespachosAdmin = () => {
               <Button variant="primary" size="sm" style={{ marginLeft: 8 }} onClick={exportarExcelDespacho}>
                 <FiDownload className="me-1" /> Despacho
               </Button>
+            </div>
+          </div>
+          <div className="d-flex align-items-center mb-3">
+            <div className="ms-auto d-flex align-items-center gap-2" style={{ width: 'auto' }}>
+              <span style={{ color: '#888', fontWeight: 500, marginRight: 12, minWidth: 120, fontSize: 14 }}>Filtrar clientes</span>
+              <div style={{ width: 240, marginRight: 12 }}>
+                <Select
+                  isMulti
+                  options={opcionesClientes}
+                  value={opcionesClientes.filter(opt => clientesSeleccionados.includes(opt.value))}
+                  onChange={selected => setClientesSeleccionados(selected ? selected.map(opt => opt.value) : [])}
+                  placeholder="Seleccionar clientes"
+                  noOptionsMessage={() => 'Sin clientes'}
+                  styles={{ control: base => ({ ...base, minHeight: 32, fontSize: 14, border: '1px solid #28a745' }), menu: base => ({ ...base, zIndex: 9999 }) }}
+                />
+              </div>
             </div>
           </div>
           {loading ? (

@@ -8,7 +8,7 @@ import firebaseCredentials from '../../firebase-credentials.json';
 
 class GoogleSheetsService {
   constructor() {
-    this.spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID;
+    this.spreadsheetId = import.meta.env.SPREADSHEET_ID;
     this.credentials = firebaseCredentials;
     this.accessToken = null;
     this.tokenExpiry = null;

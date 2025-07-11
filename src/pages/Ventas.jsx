@@ -19,7 +19,8 @@ import {
   FiTag,
   FiTruck,
   FiMapPin,
-  FiTrendingUp
+  FiTrendingUp,
+  FiEdit2
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../services/auth.ts';
@@ -87,6 +88,34 @@ const Ventas = () => {
     const saved = localStorage.getItem('bonusOn');
     return saved === null ? false : saved === 'true';
   });
+  
+  // Estado para multipago
+  const [multipago, setMultipago] = useState([
+    { metodo: 'Efectivo', monto: '' }
+  ]);
+  
+  // Estado para filtro por cliente en historial
+  const [filtroClienteHistorial, setFiltroClienteHistorial] = useState('');
+  
+  // Estado para modal de método de pago al marcar como pagada
+  const [mostrarModalPago, setMostrarModalPago] = useState(false);
+  const [ventaParaPagar, setVentaParaPagar] = useState(null);
+  const [metodoPagoReal, setMetodoPagoReal] = useState('Efectivo');
+  const [multipagoReal, setMultipagoReal] = useState([{ metodo: 'Efectivo', monto: '' }]);
+
+  // Estado para modal de edición de ventas
+  const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false);
+  const [ventaParaEditar, setVentaParaEditar] = useState(null);
+  const [ventaEditada, setVentaEditada] = useState({
+    concepto: '',
+    cliente: '',
+    fecha: '',
+    metodoPago: 'Efectivo',
+    tipoPago: 'Contado',
+    notas: '',
+    productos: []
+  });
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   // Nueva función: cargar ventas desde Firestore por usuario
   const cargarVentasFirestore = async (usuarioEmail) => {
@@ -310,6 +339,11 @@ const Ventas = () => {
       [name]: value
     });
 
+    // Resetear multipago cuando se cambie el método de pago
+    if (name === 'metodoPago' && value !== 'Multipago') {
+      resetearMultipago();
+    }
+
     // Calcular comisión en tiempo real cuando cambia el monto
     if (name === 'monto') {
       const montoNumerico = parseFloat(value) || 0;
@@ -421,6 +455,44 @@ const Ventas = () => {
     setProductosSeleccionados(productosSeleccionados.filter(p => p.id !== id));
   };
 
+  // Funciones para multipago
+  const agregarMetodoPago = () => {
+    setMultipago([...multipago, { metodo: 'Efectivo', monto: '' }]);
+  };
+
+  const eliminarMetodoPago = (index) => {
+    if (multipago.length > 1) {
+      setMultipago(multipago.filter((_, i) => i !== index));
+    }
+  };
+
+  const actualizarMetodoPago = (index, campo, valor) => {
+    const nuevosMetodos = [...multipago];
+    nuevosMetodos[index][campo] = valor;
+    setMultipago(nuevosMetodos);
+  };
+
+  const resetearMultipago = () => {
+    setMultipago([{ metodo: 'Efectivo', monto: '' }]);
+  };
+
+  // Funciones para multipago real (al marcar como pagada)
+  const agregarMetodoPagoReal = () => {
+    setMultipagoReal([...multipagoReal, { metodo: 'Efectivo', monto: '' }]);
+  };
+
+  const eliminarMetodoPagoReal = (index) => {
+    if (multipagoReal.length > 1) {
+      setMultipagoReal(multipagoReal.filter((_, i) => i !== index));
+    }
+  };
+
+  const actualizarMetodoPagoReal = (index, campo, valor) => {
+    const nuevosMetodos = [...multipagoReal];
+    nuevosMetodos[index][campo] = valor;
+    setMultipagoReal(nuevosMetodos);
+  };
+
   // Haversine formula para calcular distancia en millas
   function haversineDistance(lat1, lon1, lat2, lon2) {
     const toRad = x => (x * Math.PI) / 180;
@@ -523,7 +595,9 @@ const Ventas = () => {
       feeVenta: feeSeguro,
       notas: nuevaVenta.notas,
       pago: nuevaVenta.tipoPago === 'Contado' ? true : false,
-      profit: profitTotal
+      profit: profitTotal,
+      // Agregar información de multipago
+      multipago: nuevaVenta.metodoPago === 'Multipago' ? multipago : null
     };
     // Limpio campos undefined en ventaCompleta
     Object.keys(ventaCompleta).forEach(k => {
@@ -564,6 +638,7 @@ const Ventas = () => {
       });
       setComisionCalculada(0);
       setProductosSeleccionados([]);
+      resetearMultipago();
       setTimeout(() => {
         setMostrarAlerta(false);
       }, 3000);
@@ -834,15 +909,182 @@ const Ventas = () => {
     return monto * comisionRate;
   }
 
-  const marcarComoPagada = async (idVenta) => {
-    // Actualiza en Firestore y en el estado local
+  const marcarComoPagada = (venta) => {
+    setVentaParaPagar(venta);
+    setMetodoPagoReal(venta.metodoPago || 'Efectivo');
+    setMostrarModalPago(true);
+  };
+
+  const confirmarPago = async () => {
+    if (!ventaParaPagar) return;
+    
     try {
-      await salesService.marcarVentaComoPagada(idVenta);
-      setVentas(ventas.map(v => v.id === idVenta ? { ...v, pago: true } : v));
+      // Actualizar la venta con el método de pago real
+      const datosActualizacion = {
+        pago: true,
+        metodoPagoReal: metodoPagoReal,
+        multipago: metodoPagoReal === 'Multipago' ? multipagoReal : null
+      };
+      
+      await salesService.actualizarVenta(ventaParaPagar.id, datosActualizacion);
+      setVentas(ventas.map(v => v.id === ventaParaPagar.id ? { ...v, ...datosActualizacion } : v));
+      
+      // Cerrar modal y resetear
+      setMostrarModalPago(false);
+      setVentaParaPagar(null);
+      setMetodoPagoReal('Efectivo');
+      setMultipagoReal([{ metodo: 'Efectivo', monto: '' }]);
     } catch (err) {
       alert('Error al marcar como pagada: ' + err.message);
     }
   };
+
+  const cancelarPago = () => {
+    setMostrarModalPago(false);
+    setVentaParaPagar(null);
+    setMetodoPagoReal('Efectivo');
+    setMultipagoReal([{ metodo: 'Efectivo', monto: '' }]);
+  };
+
+  // Funciones para editar ventas
+  const abrirModalEdicion = (venta) => {
+    setVentaParaEditar(venta);
+    setVentaEditada({
+      concepto: venta.concepto || '',
+      cliente: venta.cliente || '',
+      fecha: venta.fecha || '',
+      metodoPago: venta.metodoPago || 'Efectivo',
+      tipoPago: venta.tipoPago || 'Contado',
+      notas: venta.notas || '',
+      productos: venta.productos ? [...venta.productos] : []
+    });
+    setMostrarModalEdicion(true);
+  };
+
+  const cerrarModalEdicion = () => {
+    setMostrarModalEdicion(false);
+    setVentaParaEditar(null);
+    setVentaEditada({
+      concepto: '',
+      cliente: '',
+      fecha: '',
+      metodoPago: 'Efectivo',
+      tipoPago: 'Contado',
+      notas: '',
+      productos: []
+    });
+    setGuardandoEdicion(false);
+  };
+
+  const handleCambioEdicion = (campo, valor) => {
+    setVentaEditada(prev => ({
+      ...prev,
+      [campo]: valor
+    }));
+  };
+
+  const handleCambioProductoEdicion = (index, campo, valor) => {
+    setVentaEditada(prev => ({
+      ...prev,
+      productos: prev.productos.map((producto, i) => 
+        i === index ? { ...producto, [campo]: valor } : producto
+      )
+    }));
+  };
+
+  const eliminarProductoEdicion = (index) => {
+    setVentaEditada(prev => ({
+      ...prev,
+      productos: prev.productos.filter((_, i) => i !== index)
+    }));
+  };
+
+  const recalcularVentaEditada = () => {
+    const productosConCalculos = ventaEditada.productos.map(p => {
+      const costo = obtenerCostoProducto(p, user) ?? 0;
+      const precioVenta = parseFloat(p.precioVenta) || 0;
+      const cantidad = parseFloat(p.cantidad) || 1;
+      const profit = (precioVenta - costo) * cantidad;
+      const comisionProducto = profit > 0 ? profit * comisionRate : 0;
+      
+      return {
+        ...p,
+        costo,
+        profit: isNaN(profit) ? 0 : profit,
+        comisionProducto: isNaN(comisionProducto) ? 0 : comisionProducto
+      };
+    });
+
+    const montoTotal = productosConCalculos.reduce((sum, p) => sum + ((p.precioVenta || 0) * (p.cantidad || 1)), 0);
+    const comisionTotal = productosConCalculos.reduce((sum, p) => sum + (p.comisionProducto || 0), 0);
+    const profitTotal = productosConCalculos.reduce((sum, p) => sum + (p.profit || 0), 0);
+
+    return {
+      monto: montoTotal,
+      comision: comisionTotal,
+      profit: profitTotal,
+      productos: productosConCalculos
+    };
+  };
+
+  const guardarEdicionVenta = async () => {
+    if (!ventaParaEditar || guardandoEdicion) return;
+    
+    setGuardandoEdicion(true);
+    
+    try {
+      const calculosVenta = recalcularVentaEditada();
+      
+      const datosActualizacion = {
+        concepto: ventaEditada.concepto,
+        cliente: ventaEditada.cliente,
+        fecha: ventaEditada.fecha,
+        metodoPago: ventaEditada.metodoPago,
+        tipoPago: ventaEditada.tipoPago,
+        notas: ventaEditada.notas,
+        monto: calculosVenta.monto,
+        comision: calculosVenta.comision,
+        profit: calculosVenta.profit,
+        productos: calculosVenta.productos
+      };
+
+      // Actualizar en Firestore
+      await salesService.actualizarVenta(ventaParaEditar.id, datosActualizacion);
+      
+      // Actualizar en el estado local
+      setVentas(ventas.map(v => 
+        v.id === ventaParaEditar.id ? { ...v, ...datosActualizacion } : v
+      ));
+
+      // Recalcular totales
+      const ventasActualizadas = ventas.map(v => 
+        v.id === ventaParaEditar.id ? { ...v, ...datosActualizacion } : v
+      );
+      const ventasTotales = ventasActualizadas.reduce((sum, v) => sum + (parseFloat(v.monto) || 0), 0);
+      const comisionesTotales = ventasActualizadas.reduce((sum, v) => sum + (parseFloat(v.comision) || 0), 0);
+      setTotalesGenerales({ ventasTotales, comisionesTotales });
+      localStorage.setItem('totales', JSON.stringify({ ventasTotales, comisionesTotales }));
+      localStorage.setItem('ventas', JSON.stringify(ventasActualizadas));
+
+      cerrarModalEdicion();
+      
+      // Mostrar confirmación
+      setMostrarAlerta(true);
+      setTimeout(() => setMostrarAlerta(false), 3000);
+      
+    } catch (err) {
+      console.error('Error actualizando venta:', err);
+      alert('Error al actualizar la venta: ' + err.message);
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  // Filtrar ventas por cliente para el historial
+  const ventasFiltradas = ventas.filter(venta => {
+    if (!filtroClienteHistorial.trim()) return true;
+    return venta.cliente && venta.cliente.toLowerCase().includes(filtroClienteHistorial.toLowerCase());
+  });
 
   return (
     <div className="dashboard-container">
@@ -1178,36 +1420,42 @@ const Ventas = () => {
                         {productosSeleccionados.length > 0 && (
                           <div className="mt-2">
                             {productosConProfit.map((p) => (
-                              <div key={p.id} className="d-flex align-items-center mb-2" style={{gap: 8}}>
-                                <span style={{flex: 1}}>
-                                  {p.description}
-                                  <span style={{color: '#888', fontSize: 13, marginLeft: 8}}>
-                                    (Costo: ${Number(p.costo).toFixed(2)})
+                              <div key={p.id} className="mb-3">
+                                <div className="d-flex align-items-center mb-1" style={{gap: 8}}>
+                                  <span style={{flex: 1}}>
+                                    {p.description}
+                                    <span style={{color: '#888', fontSize: 13, marginLeft: 8}}>
+                                      (Costo: ${Number(p.costo).toFixed(2)})
+                                    </span>
                                   </span>
-                                </span>
-                                <Form.Control
-                                  type="number"
-                                  min={1}
-                                  value={p.cantidad}
-                                  onChange={e => handleCantidadChange(p.id, Number(e.target.value))}
-                                  style={{width: 70, marginRight: 8}}
-                                  className="form-control-sm"
-                                />
-                                <Form.Control
-                                  type="number"
-                                  min={0}
-                                  value={p.precioVenta === undefined || p.precioVenta === null ? '' : p.precioVenta}
-                                  onChange={e => {
-                                    const value = e.target.value;
-                                    setProductosSeleccionados(productosSeleccionados.map(prod => prod.id === p.id ? { ...prod, precioVenta: value } : prod));
-                                  }}
-                                  style={{width: 90, marginRight: 8}}
-                                  className="form-control-sm"
-                                  placeholder="Precio"
-                                />
-                                <Button variant="outline-danger" size="sm" onClick={() => handleEliminarProducto(p.id)}>
-                                  Quitar
-                                </Button>
+                                  <div style={{width: 70, marginRight: 8}}>
+                                    <div style={{fontSize: 11, color: '#666', marginBottom: 2}}>Cantidad</div>
+                                    <Form.Control
+                                      type="number"
+                                      min={1}
+                                      value={p.cantidad}
+                                      onChange={e => handleCantidadChange(p.id, Number(e.target.value))}
+                                      className="form-control-sm"
+                                    />
+                                  </div>
+                                  <div style={{width: 90, marginRight: 8}}>
+                                    <div style={{fontSize: 11, color: '#666', marginBottom: 2}}>Precio de venta</div>
+                                    <Form.Control
+                                      type="number"
+                                      min={0}
+                                      value={p.precioVenta === undefined || p.precioVenta === null ? '' : p.precioVenta}
+                                      onChange={e => {
+                                        const value = e.target.value;
+                                        setProductosSeleccionados(productosSeleccionados.map(prod => prod.id === p.id ? { ...prod, precioVenta: value } : prod));
+                                      }}
+                                      className="form-control-sm"
+                                      placeholder="Precio"
+                                    />
+                                  </div>
+                                  <Button variant="outline-danger" size="sm" onClick={() => handleEliminarProducto(p.id)}>
+                                    Quitar
+                                  </Button>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1243,11 +1491,61 @@ const Ventas = () => {
                             <option value="Tarjeta">Tarjeta</option>
                             <option value="Transferencia">Transferencia</option>
                             <option value="Cheque">Cheque</option>
+                            <option value="Multipago">Multipago</option>
                           </Form.Control>
                           <span className="input-group-text bg-light">
                             <FiCreditCard className="text-primary me-1" /> Método de Pago
                           </span>
                         </div>
+                        {/* Componente de multipago */}
+                        {nuevaVenta.metodoPago === 'Multipago' && (
+                          <div className="mt-2">
+                            <small className="text-muted mb-2 d-block">Dividir pago entre métodos:</small>
+                            {multipago.map((metodo, index) => (
+                              <div key={index} className="d-flex align-items-center mb-2" style={{gap: 8}}>
+                                <Form.Control
+                                  as="select"
+                                  value={metodo.metodo}
+                                  onChange={(e) => actualizarMetodoPago(index, 'metodo', e.target.value)}
+                                  className="form-control-sm"
+                                  style={{width: 120}}
+                                >
+                                  <option value="Efectivo">Efectivo</option>
+                                  <option value="Tarjeta">Tarjeta</option>
+                                  <option value="Transferencia">Transferencia</option>
+                                  <option value="Cheque">Cheque</option>
+                                </Form.Control>
+                                <Form.Control
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  placeholder="Monto"
+                                  value={metodo.monto}
+                                  onChange={(e) => actualizarMetodoPago(index, 'monto', e.target.value)}
+                                  className="form-control-sm"
+                                  style={{width: 100}}
+                                />
+                                {multipago.length > 1 && (
+                                  <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    onClick={() => eliminarMetodoPago(index)}
+                                  >
+                                    Quitar
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
+                              onClick={agregarMetodoPago}
+                              className="mt-1"
+                            >
+                              + Agregar método
+                            </Button>
+                          </div>
+                        )}
                       </Col>
                       <Col md={6} className="mb-3">
                         <div className="input-group mb-2 shadow-sm">
@@ -1396,14 +1694,26 @@ const Ventas = () => {
                   <FiFileText className="me-2 text-primary" /> 
                   Historial de Ventas
                 </h2>
-                {ventas.length > 0 && (
-                  <div className="text-muted small">
-                    {ventas.length} {ventas.length === 1 ? 'venta registrada' : 'ventas registradas'}
-                  </div>
-                )}
+                <div className="d-flex align-items-center gap-3">
+                  {ventas.length > 0 && (
+                    <Form.Control
+                      type="text"
+                      placeholder="Filtrar por cliente..."
+                      value={filtroClienteHistorial}
+                      onChange={(e) => setFiltroClienteHistorial(e.target.value)}
+                      className="form-control-sm"
+                      style={{ width: 200 }}
+                    />
+                  )}
+                  {ventas.length > 0 && (
+                    <div className="text-muted small">
+                      {ventasFiltradas.length} de {ventas.length} {ventas.length === 1 ? 'venta' : 'ventas'}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="panel-body p-0">
-                {ventas.length > 0 ? (
+                {ventasFiltradas.length > 0 ? (
                   <Table responsive hover className="mb-0 table-modern">
                     <thead className="table-light">
                       <tr>
@@ -1418,7 +1728,7 @@ const Ventas = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {ventas.map(venta => (
+                      {ventasFiltradas.map(venta => (
                         <tr key={venta.id} style={!venta.pago && venta.tipoPago === 'Crédito' ? { background: '#fffbe6' } : {}}>
                           <td className="py-3 text-center">{new Date(venta.fecha).toLocaleDateString()}</td>
                           <td className="py-3 text-center">{venta.concepto}</td>
@@ -1427,22 +1737,39 @@ const Ventas = () => {
                           <td className="py-3 text-center">{venta.tipoPago || 'Contado'}</td>
                           <td className="py-3 text-center">${venta.monto.toFixed(2)}</td>
                           <td className="py-3 text-center text-success">${venta.comision.toFixed(2)}</td>
-                          {venta.tipoPago === 'Crédito' && !venta.pago && (
-                            <td className="py-3 text-center">
-                              <Button size="sm" variant="warning" onClick={() => marcarComoPagada(venta.id)}>Marcar como pagada</Button>
-                            </td>
-                          )}
+                          <td className="py-3 text-center">
+                            <div className="d-flex justify-content-center gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline-primary" 
+                                onClick={() => abrirModalEdicion(venta)}
+                                title="Editar venta"
+                              >
+                                <FiEdit2 />
+                              </Button>
+                              {venta.tipoPago === 'Crédito' && !venta.pago && (
+                                <Button 
+                                  size="sm" 
+                                  variant="warning" 
+                                  onClick={() => marcarComoPagada(venta)}
+                                  title="Marcar como pagada"
+                                >
+                                  <FiCheck />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot className="table-light table-footer">
                       <tr>
-                        <td colSpan="5" className="fw-bold py-3 text-start">Totales:</td>
+                        <td colSpan="5" className="fw-bold py-3 text-start">Totales {filtroClienteHistorial ? '(filtrados)' : ''}:</td>
                         <td className="text-center fw-bold py-3">
-                          ${ventas.reduce((sum, venta) => sum + venta.monto, 0).toFixed(2)}
+                          ${ventasFiltradas.reduce((sum, venta) => sum + venta.monto, 0).toFixed(2)}
                         </td>
                         <td className="text-center fw-bold text-success py-3">
-                          ${ventas.reduce((sum, venta) => sum + venta.comision, 0).toFixed(2)}
+                          ${ventasFiltradas.reduce((sum, venta) => sum + venta.comision, 0).toFixed(2)}
                         </td>
                       </tr>
                     </tfoot>
@@ -1453,8 +1780,17 @@ const Ventas = () => {
                       <div className="empty-icon">
                         <FiShoppingBag />
                       </div>
-                      <h3>No hay ventas registradas</h3>
-                      <p className="text-muted mb-4">Registra tu primera venta utilizando el formulario.</p>
+                      {filtroClienteHistorial ? (
+                        <>
+                          <h3>No se encontraron ventas</h3>
+                          <p className="text-muted mb-4">No hay ventas que coincidan con el filtro "{filtroClienteHistorial}".</p>
+                        </>
+                      ) : (
+                        <>
+                          <h3>No hay ventas registradas</h3>
+                          <p className="text-muted mb-4">Registra tu primera venta utilizando el formulario.</p>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1463,6 +1799,289 @@ const Ventas = () => {
           </Container>
         </div>
       </main>
+
+      {/* Modal para seleccionar método de pago al marcar como pagada */}
+      {mostrarModalPago && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Confirmar pago</h5>
+                <button type="button" className="btn-close" onClick={cancelarPago}></button>
+              </div>
+              <div className="modal-body">
+                <p>¿Cómo pagó el cliente esta venta?</p>
+                
+                <div className="mb-3">
+                  <label className="form-label">Método de pago</label>
+                  <Form.Control
+                    as="select"
+                    value={metodoPagoReal}
+                    onChange={(e) => setMetodoPagoReal(e.target.value)}
+                    className="form-control"
+                  >
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Multipago">Multipago</option>
+                  </Form.Control>
+                </div>
+
+                {/* Componente de multipago para método de pago real */}
+                {metodoPagoReal === 'Multipago' && (
+                  <div className="mt-3">
+                    <label className="form-label">Dividir pago entre métodos:</label>
+                    {multipagoReal.map((metodo, index) => (
+                      <div key={index} className="d-flex align-items-center mb-2" style={{gap: 8}}>
+                        <Form.Control
+                          as="select"
+                          value={metodo.metodo}
+                          onChange={(e) => actualizarMetodoPagoReal(index, 'metodo', e.target.value)}
+                          className="form-control-sm"
+                          style={{width: 120}}
+                        >
+                          <option value="Efectivo">Efectivo</option>
+                          <option value="Tarjeta">Tarjeta</option>
+                          <option value="Transferencia">Transferencia</option>
+                          <option value="Cheque">Cheque</option>
+                        </Form.Control>
+                        <Form.Control
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          placeholder="Monto"
+                          value={metodo.monto}
+                          onChange={(e) => actualizarMetodoPagoReal(index, 'monto', e.target.value)}
+                          className="form-control-sm"
+                          style={{width: 100}}
+                        />
+                        {multipagoReal.length > 1 && (
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => eliminarMetodoPagoReal(index)}
+                          >
+                            Quitar
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={agregarMetodoPagoReal}
+                      className="mt-1"
+                    >
+                      + Agregar método
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <Button variant="secondary" onClick={cancelarPago}>
+                  Cancelar
+                </Button>
+                <Button variant="success" onClick={confirmarPago}>
+                  Confirmar pago
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para editar venta */}
+      {mostrarModalEdicion && ventaParaEditar && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <FiEdit2 className="me-2" />
+                  Editar Venta
+                </h5>
+                <button type="button" className="btn-close" onClick={cerrarModalEdicion}></button>
+              </div>
+              <div className="modal-body">
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Concepto</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={ventaEditada.concepto}
+                        onChange={(e) => handleCambioEdicion('concepto', e.target.value)}
+                        placeholder="Descripción de la venta"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Cliente</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={ventaEditada.cliente}
+                        onChange={(e) => handleCambioEdicion('cliente', e.target.value)}
+                        placeholder="Nombre del cliente"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={4}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Fecha</Form.Label>
+                      <Form.Control
+                        type="date"
+                        value={ventaEditada.fecha}
+                        onChange={(e) => handleCambioEdicion('fecha', e.target.value)}
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Método de Pago</Form.Label>
+                      <Form.Control
+                        as="select"
+                        value={ventaEditada.metodoPago}
+                        onChange={(e) => handleCambioEdicion('metodoPago', e.target.value)}
+                      >
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Multipago">Multipago</option>
+                      </Form.Control>
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Tipo de Pago</Form.Label>
+                      <Form.Control
+                        as="select"
+                        value={ventaEditada.tipoPago}
+                        onChange={(e) => handleCambioEdicion('tipoPago', e.target.value)}
+                      >
+                        <option value="Contado">Contado</option>
+                        <option value="Crédito">Crédito</option>
+                      </Form.Control>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Notas</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    value={ventaEditada.notas}
+                    onChange={(e) => handleCambioEdicion('notas', e.target.value)}
+                    placeholder="Notas adicionales..."
+                  />
+                </Form.Group>
+
+                {/* Productos */}
+                <div className="mb-3">
+                  <h6 className="d-flex align-items-center">
+                    <FiShoppingBag className="me-2" />
+                    Productos ({ventaEditada.productos.length})
+                  </h6>
+                  
+                  {ventaEditada.productos.length > 0 ? (
+                    <div className="border rounded p-3" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                      {ventaEditada.productos.map((producto, index) => (
+                        <div key={index} className="d-flex align-items-center mb-2 p-2 border rounded">
+                          <div className="flex-grow-1">
+                            <strong>{producto.description || producto.nombre || 'Producto sin nombre'}</strong>
+                            <div className="small text-muted">
+                              Costo: ${(producto.costo || 0).toFixed(2)}
+                            </div>
+                          </div>
+                          <div style={{ width: 80, marginRight: 8 }}>
+                            <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>Cantidad</div>
+                            <Form.Control
+                              type="number"
+                              min={1}
+                              value={producto.cantidad || 1}
+                              onChange={(e) => handleCambioProductoEdicion(index, 'cantidad', e.target.value)}
+                              className="form-control-sm text-center"
+                            />
+                          </div>
+                          <div style={{ width: 90, marginRight: 8 }}>
+                            <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>Precio venta</div>
+                            <Form.Control
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={producto.precioVenta || ''}
+                              onChange={(e) => handleCambioProductoEdicion(index, 'precioVenta', e.target.value)}
+                              className="form-control-sm"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => eliminarProductoEdicion(index)}
+                            title="Eliminar producto"
+                          >
+                            ✕
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center text-muted py-3 border rounded">
+                      No hay productos en esta venta
+                    </div>
+                  )}
+                </div>
+
+                {/* Resumen de cálculos */}
+                {ventaEditada.productos.length > 0 && (
+                  <div className="bg-light p-3 rounded">
+                    <Row>
+                      <Col md={4}>
+                        <strong>Monto Total: ${recalcularVentaEditada().monto.toFixed(2)}</strong>
+                      </Col>
+                      <Col md={4}>
+                        <strong className="text-success">Comisión: ${recalcularVentaEditada().comision.toFixed(2)}</strong>
+                      </Col>
+                      <Col md={4}>
+                        <strong className="text-info">Profit: ${recalcularVentaEditada().profit.toFixed(2)}</strong>
+                      </Col>
+                    </Row>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <Button variant="secondary" onClick={cerrarModalEdicion} disabled={guardandoEdicion}>
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="primary" 
+                  onClick={guardarEdicionVenta}
+                  disabled={guardandoEdicion || !ventaEditada.cliente || !ventaEditada.concepto}
+                >
+                  {guardandoEdicion ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <FiCheck className="me-2" />
+                      Guardar Cambios
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
