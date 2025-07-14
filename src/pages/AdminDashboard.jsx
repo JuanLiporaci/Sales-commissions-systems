@@ -47,11 +47,13 @@ const AdminDashboard = () => {
         // Extraer usuarios únicos
         const usuariosUnicos = Array.from(new Set(ventasFirestore.map(v => v.usuarioEmail)));
         setUsuarios(usuariosUnicos);
-        // Extraer clientes únicos
-        const clientesUnicos = Array.from(new Set(ventasFirestore.map(v => v.cliente).filter(Boolean)));
-        setClientes(clientesUnicos);
+        // Cargar todos los clientes desde delivery_locations
+        const { locationsService } = await import('../services/locations.js');
+        const locations = await locationsService.getAllLocations();
+        const todosLosClientes = Array.from(new Set(locations.map(loc => loc.name).filter(Boolean)));
+        setClientes(todosLosClientes);
       } catch (err) {
-        setError('Error cargando ventas de Firestore');
+        setError('Error cargando datos desde Firestore');
       }
       setLoading(false);
     };

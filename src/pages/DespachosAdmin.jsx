@@ -32,9 +32,11 @@ const DespachosAdmin = () => {
         // Usuarios únicos de ventas
         const usuariosUnicos = Array.from(new Set(ventasFirestore.map(v => v.usuarioEmail)));
         setUsuarios(usuariosUnicos);
-        // Clientes únicos de ventas
-        const clientesUnicos = Array.from(new Set(ventasFirestore.map(v => v.cliente).filter(Boolean)));
-        setClientes(clientesUnicos);
+        // Cargar todos los clientes desde delivery_locations
+        const { locationsService } = await import('../services/locations.js');
+        const locations = await locationsService.getAllLocations();
+        const todosLosClientes = Array.from(new Set(locations.map(loc => loc.name).filter(Boolean)));
+        setClientes(todosLosClientes);
       } catch (err) {
         setVentas([]);
         setUsuarios([]);

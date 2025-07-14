@@ -74,7 +74,7 @@ const Forecast = () => {
     } else {
       async function fetchClientesFromLocations() {
         try {
-          const locations = await locationsService.getAllLocationsCached();
+          const locations = await locationsService.getAllLocations();
           const nombres = Array.from(new Set(locations.map(loc => loc.name).filter(Boolean)));
           const clientesArr = nombres.map(nombre => ({ nombre }));
           setClientes(clientesArr);
@@ -335,7 +335,7 @@ const Forecast = () => {
     // Buscar la dirección del cliente en locations
     let direccionCliente = '';
     try {
-      const locations = await locationsService.getAllLocationsCached();
+      const locations = await locationsService.getAllLocations();
       const clienteLoc = locations.find(loc => loc.name && loc.name.toLowerCase() === forecast.cliente.toLowerCase());
       if (clienteLoc && clienteLoc.address) {
         direccionCliente = clienteLoc.address;
