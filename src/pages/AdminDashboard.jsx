@@ -96,7 +96,7 @@ const AdminDashboard = () => {
   const exportToExcel = async () => {
     if (ventasFiltradas.length === 0) return;
     // Encabezados generales de venta
-    const headersVenta = ['Fecha', 'Usuario', 'Identificador Vendedor', 'Cliente', 'Monto', 'Comisión', 'Profit', 'Fee Venta'];
+    const headersVenta = ['Fecha', 'Usuario', 'Identificador Vendedor', 'Cliente', 'Monto', 'Comisión', 'Profit', 'Fee Venta', 'Método de Pago'];
     // Encabezados de productos
     const headersProductos = ['Producto', 'Cantidad', 'Costo', 'Precio Venta', 'Profit'];
     // Construir datos
@@ -111,7 +111,8 @@ const AdminDashboard = () => {
         (venta.monto || 0).toFixed(2),
         (venta.comision || 0).toFixed(2),
         (venta.profit || 0).toFixed(2),
-        (venta.feeVenta || 0).toFixed(2)
+        (venta.feeVenta || 0).toFixed(2),
+        Array.isArray(venta.pagos) ? venta.pagos.map(p => `${p.metodo}: $${p.monto}`).join(', ') : (venta.tipoPago || '-')
       ]);
       // Encabezados de productos
       data.push(headersProductos);
@@ -382,6 +383,7 @@ const AdminDashboard = () => {
                   <th>Comisión</th>
                   <th>Profit</th>
                   <th>Fee Venta</th>
+                  <th>Método de Pago</th>
                   <th>Detalle</th>
                 </tr>
               </thead>
@@ -396,6 +398,7 @@ const AdminDashboard = () => {
                     <td>${(venta.comision || 0).toFixed(2)}</td>
                     <td>${(venta.profit || 0).toFixed(2)}</td>
                     <td>${(venta.feeVenta || 0).toFixed(2)}</td>
+                    <td>{Array.isArray(venta.pagos) ? venta.pagos.map(p => `${p.metodo}: $${p.monto}`).join(', ') : (venta.tipoPago || '-')}</td>
                     <td>
                       {venta.pago === false
                         ? <span style={{color:'#b8860b',fontWeight:600}}>No pagada</span>
@@ -412,7 +415,7 @@ const AdminDashboard = () => {
                   </tr>,
                   ventaExpandidaId === venta.id && (
                     <tr key={venta.id + '-detalle'}>
-                      <td colSpan={9} style={{ background: '#f8fafd', padding: 0 }}>
+                      <td colSpan={10} style={{ background: '#f8fafd', padding: 0 }}>
                         <div style={{ padding: 16 }}>
                           <strong>Detalle de productos vendidos:</strong>
                           <Table bordered hover size="sm" className="mt-2">
@@ -437,6 +440,7 @@ const AdminDashboard = () => {
                               ))}
                             </tbody>
                           </Table>
+                          <div className="mt-3"><b>Método de Pago:</b> {Array.isArray(venta.pagos) ? venta.pagos.map(p => `${p.metodo}: $${p.monto}`).join(', ') : (venta.tipoPago || '-')}</div>
                         </div>
                       </td>
                     </tr>
@@ -490,6 +494,7 @@ const AdminDashboard = () => {
                   ))}
                 </tbody>
               </Table>
+              <div className="mt-3"><b>Método de Pago:</b> {Array.isArray(ventaSeleccionada.pagos) ? ventaSeleccionada.pagos.map(p => `${p.metodo}: $${p.monto}`).join(', ') : (ventaSeleccionada.tipoPago || '-')}</div>
             </>
           ) : (
             <div>No hay información de la venta.</div>

@@ -230,16 +230,17 @@ const DespachosAdmin = () => {
                   {ventasFiltradas.length === 0 ? (
                     <tr><td colSpan={8} className="text-center">No hay despachos registrados</td></tr>
                   ) : (
-                    ventasFiltradas.flatMap(venta => (
-                      (venta.productos || []).map((prod, idx) => (
-                        <tr key={venta.id + '-' + idx} style={{ verticalAlign: 'middle' }}>
+                    ventasFiltradas.map(venta => {
+                      const productos = (venta.productos || []).map(prod => `${prod.description || prod.nombre || prod.name || ''}${prod.cantidad ? ` (${prod.cantidad})` : ''}`).join('\n');
+                      return (
+                        <tr key={venta.id} style={{ verticalAlign: 'middle' }}>
                           <td style={{ padding: '6px 6px' }}>{venta.fechaRegistro ? new Date(venta.fechaRegistro).toLocaleDateString() : ''}</td>
                           <td style={{ padding: '6px 6px' }}>{venta.usuarioEmail}</td>
                           <td style={{ padding: '6px 6px' }}>{venta.identificador || ''}</td>
                           <td style={{ padding: '6px 6px' }}>{venta.cliente}</td>
                           <td style={{ padding: '6px 6px', whiteSpace: 'pre-line' }}>{venta.direccionCliente || ''}</td>
-                          <td style={{ padding: '6px 6px', whiteSpace: 'pre-line' }}>{prod.description || prod.nombre || prod.name || ''}</td>
-                          <td style={{ padding: '6px 6px', textAlign: 'center' }}>{prod.cantidad || 1}</td>
+                          <td style={{ padding: '6px 6px', whiteSpace: 'pre-line' }}>{productos}</td>
+                          <td style={{ padding: '6px 6px', textAlign: 'center' }}>{(venta.productos || []).map(prod => prod.cantidad || 1).join('\n')}</td>
                           <td style={{ minWidth: 120, padding: '6px 6px' }}>
                             <Select
                               options={driverOptions}
@@ -257,8 +258,8 @@ const DespachosAdmin = () => {
                             />
                           </td>
                         </tr>
-                      ))
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </Table>
