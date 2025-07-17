@@ -22,6 +22,9 @@ const AdminDashboard = () => {
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [ventaExpandidaId, setVentaExpandidaId] = useState(null);
+  const [filtroMetodoPago, setFiltroMetodoPago] = useState('');
+  const [filtroTipoPago, setFiltroTipoPago] = useState('');
+  const [filtroEstadoPago, setFiltroEstadoPago] = useState('');
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [bonusOn, setBonusOn] = useState(() => {
@@ -68,6 +71,19 @@ const AdminDashboard = () => {
   const ventasFiltradas = ventas.filter(v => {
     const usuarioOk = usuariosSeleccionados.length === 0 || usuariosSeleccionados.includes(v.usuarioEmail);
     const clienteOk = clientesSeleccionados.length === 0 || clientesSeleccionados.includes(v.cliente);
+    
+    // Filtro por método de pago
+    const metodoOk = !filtroMetodoPago || 
+      (Array.isArray(v.pagos) ? v.pagos.some(p => p.metodo === filtroMetodoPago) : (v.tipoPago === filtroMetodoPago));
+    
+    // Filtro por tipo de pago
+    const tipoOk = !filtroTipoPago || (v.tipoPago === filtroTipoPago);
+    
+    // Filtro por estado de pago
+    const estadoOk = !filtroEstadoPago || 
+      (filtroEstadoPago === 'pagada' && v.pago === true) ||
+      (filtroEstadoPago === 'no-pagada' && v.pago === false);
+    
     let fechaOk = true;
     if (fechaInicio) {
       const fechaVenta = v.fecha ? new Date(v.fecha) : null;
@@ -80,7 +96,7 @@ const AdminDashboard = () => {
       fin.setDate(fin.getDate() + 1);
       if (fechaVenta && fechaVenta >= fin) fechaOk = false;
     }
-    return usuarioOk && clienteOk && fechaOk;
+    return usuarioOk && clienteOk && fechaOk && metodoOk && tipoOk && estadoOk;
   });
 
   // Lógica de sumatorias:
@@ -309,10 +325,67 @@ const AdminDashboard = () => {
                   fontWeight: 600,
                   color: '#222',
                   marginLeft: 0,
-                  marginRight: 16
+                  marginRight: 8
                 }}
                 placeholder="Hasta"
               />
+              <Form.Select
+                value={filtroMetodoPago}
+                onChange={e => setFiltroMetodoPago(e.target.value)}
+                size="sm"
+                style={{
+                  width: 120,
+                  background: 'rgba(255,255,255,0.95)',
+                  border: '2px solid #007bff',
+                  fontWeight: 600,
+                  color: '#222',
+                  marginLeft: 0,
+                  marginRight: 8
+                }}
+              >
+                <option value="">Método</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Tarjeta">Tarjeta</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Multipago">Multipago</option>
+              </Form.Select>
+              <Form.Select
+                value={filtroTipoPago}
+                onChange={e => setFiltroTipoPago(e.target.value)}
+                size="sm"
+                style={{
+                  width: 120,
+                  background: 'rgba(255,255,255,0.95)',
+                  border: '2px solid #007bff',
+                  fontWeight: 600,
+                  color: '#222',
+                  marginLeft: 0,
+                  marginRight: 8
+                }}
+              >
+                <option value="">Tipo</option>
+                <option value="Contado">Contado</option>
+                <option value="Crédito">Crédito</option>
+              </Form.Select>
+              <Form.Select
+                value={filtroEstadoPago}
+                onChange={e => setFiltroEstadoPago(e.target.value)}
+                size="sm"
+                style={{
+                  width: 120,
+                  background: 'rgba(255,255,255,0.95)',
+                  border: '2px solid #007bff',
+                  fontWeight: 600,
+                  color: '#222',
+                  marginLeft: 0,
+                  marginRight: 16
+                }}
+              >
+                <option value="">Estado</option>
+                <option value="pagada">Pagada</option>
+                <option value="no-pagada">No Pagada</option>
+              </Form.Select>
             </div>
           </div>
           <div className="d-flex align-items-center mb-3">

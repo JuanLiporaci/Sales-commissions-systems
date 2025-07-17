@@ -17,6 +17,7 @@ const DespachosAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [driverOptions, setDriverOptions] = useState([]);
   const [driverMap, setDriverMap] = useState({});
+  const [distribuidorMap, setDistribuidorMap] = useState({});
 
   // Cargar ventas y usuarios
   useEffect(() => {
@@ -102,6 +103,18 @@ const DespachosAdmin = () => {
     }
   };
 
+  // Handler para cambiar el distribuidor de una venta
+  const handleDistribuidorChange = async (ventaId, newDistribuidor) => {
+    setVentas(prev => prev.map(v => v.id === ventaId ? { ...v, distribuidor: newDistribuidor } : v));
+    setDistribuidorMap(prev => ({ ...prev, [ventaId]: newDistribuidor }));
+    try {
+      const ventaRef = doc(db, 'ventas', ventaId);
+      await updateDoc(ventaRef, { distribuidor: newDistribuidor });
+    } catch (err) {
+      // Manejo de error opcional
+    }
+  };
+
   // Opciones para react-select de usuarios
   const opcionesUsuarios = usuarios.map(u => ({ value: u, label: u }));
   // Opciones para react-select de clientes
@@ -121,6 +134,7 @@ const DespachosAdmin = () => {
           'Internal notes': `${prod.description || prod.nombre || prod.name || ''}${prod.cantidad ? ` (${prod.cantidad})` : ''}`,
           'Código': prod.code || prod.id || '',
           'Driver': driverName,
+          'Distribuidor': venta.distribuidor || '',
           'Notas': venta.notas || ''
         };
       })
@@ -142,6 +156,7 @@ const DespachosAdmin = () => {
         'Internal notes': productos,
         'Código': codigos,
         'Driver': driverName,
+        'Distribuidor': venta.distribuidor || '',
         'Fecha de despacho': venta.fechaRegistro ? new Date(venta.fechaRegistro).toLocaleDateString() : '',
         'Notas': venta.notas || ''
       };
@@ -224,11 +239,12 @@ const DespachosAdmin = () => {
                     <th style={{ minWidth: 160, padding: '8px 6px' }}>Producto</th>
                     <th style={{ minWidth: 60, padding: '8px 6px', textAlign: 'center' }}>Cantidad</th>
                     <th style={{ minWidth: 120, padding: '8px 6px' }}>Driver</th>
+                    <th style={{ minWidth: 120, padding: '8px 6px' }}>Distribuidor</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ventasFiltradas.length === 0 ? (
-                    <tr><td colSpan={8} className="text-center">No hay despachos registrados</td></tr>
+                    <tr><td colSpan={9} className="text-center">No hay despachos registrados</td></tr>
                   ) : (
                     ventasFiltradas.map(venta => {
                       const productos = (venta.productos || []).map(prod => `${prod.description || prod.nombre || prod.name || ''}${prod.cantidad ? ` (${prod.cantidad})` : ''}`).join('\n');
@@ -255,6 +271,16 @@ const DespachosAdmin = () => {
                               placeholder="Seleccionar driver"
                               noOptionsMessage={() => 'Sin opciones'}
                               styles={{ control: base => ({ ...base, minHeight: 28, fontSize: 14 }), menu: base => ({ ...base, zIndex: 9999 }) }}
+                            />
+                          </td>
+                          <td style={{ minWidth: 120, padding: '6px 6px' }}>
+                            <Form.Control
+                              type="text"
+                              value={distribuidorMap[venta.id] || venta.distribuidor || ''}
+                              onChange={(e) => handleDistribuidorChange(venta.id, e.target.value)}
+                              placeholder="Nombre distribuidor"
+                              size="sm"
+                              style={{ fontSize: 14, height: 28 }}
                             />
                           </td>
                         </tr>

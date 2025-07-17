@@ -94,8 +94,11 @@ const Ventas = () => {
     { metodo: 'Efectivo', monto: '' }
   ]);
   
-  // Estado para filtro por cliente en historial
+  // Estado para filtros en historial
   const [filtroClienteHistorial, setFiltroClienteHistorial] = useState('');
+  const [filtroFechaHistorial, setFiltroFechaHistorial] = useState('');
+  const [filtroMetodoPagoHistorial, setFiltroMetodoPagoHistorial] = useState('');
+  const [filtroTipoPagoHistorial, setFiltroTipoPagoHistorial] = useState('');
   
   // Estado para modal de método de pago al marcar como pagada
   const [mostrarModalPago, setMostrarModalPago] = useState(false);
@@ -1082,8 +1085,23 @@ const Ventas = () => {
 
   // Filtrar ventas por cliente para el historial
   const ventasFiltradas = ventas.filter(venta => {
-    if (!filtroClienteHistorial.trim()) return true;
-    return venta.cliente && venta.cliente.toLowerCase().includes(filtroClienteHistorial.toLowerCase());
+    // Filtro por cliente
+    const clienteOk = !filtroClienteHistorial.trim() || 
+      (venta.cliente && venta.cliente.toLowerCase().includes(filtroClienteHistorial.toLowerCase()));
+    
+    // Filtro por fecha
+    const fechaOk = !filtroFechaHistorial || 
+      (venta.fecha && new Date(venta.fecha).toLocaleDateString() === new Date(filtroFechaHistorial).toLocaleDateString());
+    
+    // Filtro por método de pago
+    const metodoOk = !filtroMetodoPagoHistorial || 
+      (venta.metodoPago && venta.metodoPago === filtroMetodoPagoHistorial);
+    
+    // Filtro por tipo de pago
+    const tipoOk = !filtroTipoPagoHistorial || 
+      (venta.tipoPago && venta.tipoPago === filtroTipoPagoHistorial);
+    
+    return clienteOk && fechaOk && metodoOk && tipoOk;
   });
 
   return (
@@ -1696,14 +1714,46 @@ const Ventas = () => {
                 </h2>
                 <div className="d-flex align-items-center gap-3">
                   {ventas.length > 0 && (
-                    <Form.Control
-                      type="text"
-                      placeholder="Filtrar por cliente..."
-                      value={filtroClienteHistorial}
-                      onChange={(e) => setFiltroClienteHistorial(e.target.value)}
-                      className="form-control-sm"
-                      style={{ width: 200 }}
-                    />
+                    <>
+                      <Form.Control
+                        type="text"
+                        placeholder="Filtrar por cliente..."
+                        value={filtroClienteHistorial}
+                        onChange={(e) => setFiltroClienteHistorial(e.target.value)}
+                        className="form-control-sm"
+                        style={{ width: 150 }}
+                      />
+                      <Form.Control
+                        type="date"
+                        value={filtroFechaHistorial}
+                        onChange={(e) => setFiltroFechaHistorial(e.target.value)}
+                        className="form-control-sm"
+                        style={{ width: 140 }}
+                      />
+                      <Form.Select
+                        value={filtroMetodoPagoHistorial}
+                        onChange={(e) => setFiltroMetodoPagoHistorial(e.target.value)}
+                        className="form-control-sm"
+                        style={{ width: 120 }}
+                      >
+                        <option value="">Método</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta">Tarjeta</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Multipago">Multipago</option>
+                      </Form.Select>
+                      <Form.Select
+                        value={filtroTipoPagoHistorial}
+                        onChange={(e) => setFiltroTipoPagoHistorial(e.target.value)}
+                        className="form-control-sm"
+                        style={{ width: 120 }}
+                      >
+                        <option value="">Tipo</option>
+                        <option value="Contado">Contado</option>
+                        <option value="Crédito">Crédito</option>
+                      </Form.Select>
+                    </>
                   )}
                   {ventas.length > 0 && (
                     <div className="text-muted small">
