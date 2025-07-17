@@ -25,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { logout } from '../services/auth.ts';
 import { locationsService } from '../services/locations.js';
 import { customersService } from '../services/customers.ts';
-import { quickBooksService } from '../services/quickbooks.js';
+import { useQuickBooksAutoConnect } from '../hooks/useQuickBooksAutoConnect';
 import LocationImporter from '../components/LocationImporter.jsx';
 import { auth } from '../lib/firebase.ts';
 import { exportArrayToExcel } from '../utils/excelExport.js';
@@ -41,7 +41,9 @@ const Locations = () => {
   const [importingFromQB, setImportingFromQB] = useState(false);
   const [qbSuccess, setQbSuccess] = useState(false);
   const [qbLocationsCount, setQbLocationsCount] = useState(0);
-  const [qbConnected, setQbConnected] = useState(false);
+
+  // Use QuickBooks auto-connection hook
+  const { isConnected: qbConnected, isConnecting: qbConnecting, error: qbError, forceReconnect } = useQuickBooksAutoConnect();
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
@@ -69,9 +71,6 @@ const Locations = () => {
 
   // Load locations on component mount
   useEffect(() => {
-    // Check QuickBooks connection status
-    setQbConnected(quickBooksService.isAuthenticated());
-    
     const cachedLocations = localStorage.getItem('locations');
     if (cachedLocations) {
       setLocations(JSON.parse(cachedLocations));
@@ -80,6 +79,13 @@ const Locations = () => {
       fetchLocations();
     }
   }, []);
+
+  // Auto-import when QuickBooks connects
+  useEffect(() => {
+    if (qbConnected && locations.length === 0) {
+      importFromQuickBooks();
+    }
+  }, [qbConnected]);
 
   const fetchLocations = async () => {
     setLoading(true);
@@ -151,7 +157,8 @@ const Locations = () => {
     }
 
     if (!qbConnected) {
-      setError('Debes conectar con QuickBooks primero desde la página de Configuración.');
+      setError('QuickBooks no está conectado. Intentando conectar automáticamente...');
+      await forceReconnect();
       return;
     }
     
@@ -265,10 +272,22 @@ const Locations = () => {
           <div className="navbar-content">
             <div className="d-flex align-items-center">
               <h4 className="mb-0">Ubicaciones de Entrega</h4>
+              {qbConnecting && (
+                <Badge bg="warning" className="ms-2">
+                  <FiRefreshCw className="me-1 spin" />
+                  Conectando...
+                </Badge>
+              )}
               {qbConnected && (
                 <Badge bg="success" className="ms-2">
                   <FiCloud className="me-1" />
                   QuickBooks Conectado
+                </Badge>
+              )}
+              {qbError && (
+                <Badge bg="danger" className="ms-2">
+                  <FiAlertCircle className="me-1" />
+                  Error de Conexión
                 </Badge>
               )}
             </div>
@@ -291,23 +310,28 @@ const Locations = () => {
           <h2 className="dashboard-title mb-4">Ubicaciones de Entrega</h2>
           <Container className="py-4">
             <Row>
-              {/* QuickBooks Integration Section */}
+              {/* QuickBooks Status Section */}
               <Col lg={12} className="mb-4">
-                <Card className="shadow-sm">
+                <Card className={`shadow-sm ${qbConnected ? 'quickbooks-card connected' : 'quickbooks-card disconnected'}`}>
                   <Card.Body>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <h5 className="mb-0">
                         <FiCloud className="me-2 text-primary" />
-                        Integración con QuickBooks
+                        Estado de QuickBooks
                       </h5>
                       <div className="d-flex gap-2">
                         <Button
                           variant={qbConnected ? "success" : "secondary"}
                           size="sm"
                           onClick={importFromQuickBooks}
-                          disabled={!qbConnected || importingFromQB}
+                          disabled={!qbConnected || importingFromQB || qbConnecting}
                         >
-                          {importingFromQB ? (
+                          {qbConnecting ? (
+                            <>
+                              <FiRefreshCw className="me-2 spin" />
+                              Conectando...
+                            </>
+                          ) : importingFromQB ? (
                             <>
                               <FiRefreshCw className="me-2 spin" />
                               Importando...
@@ -330,13 +354,32 @@ const Locations = () => {
                       </div>
                     </div>
                     
-                    {qbConnected ? (
+                    {qbConnecting ? (
                       <p className="text-muted mb-0">
-                        Conectado a QuickBooks. Las ubicaciones se sincronizan automáticamente con los clientes de tu cuenta de QuickBooks.
+                        <strong>Conectando automáticamente a QuickBooks...</strong> Esto puede tomar unos segundos.
                       </p>
+                    ) : qbConnected ? (
+                      <p className="text-muted mb-0">
+                        <strong>Conectado automáticamente a QuickBooks.</strong> Las ubicaciones se sincronizan automáticamente con los clientes de tu cuenta de QuickBooks.
+                      </p>
+                    ) : qbError ? (
+                      <div>
+                        <p className="text-danger mb-2">
+                          <strong>Error de conexión:</strong> {qbError}
+                        </p>
+                        <Button 
+                          variant="outline-primary" 
+                          size="sm"
+                          onClick={forceReconnect}
+                          disabled={qbConnecting}
+                        >
+                          <FiRefreshCw className="me-2" />
+                          Reintentar Conexión
+                        </Button>
+                      </div>
                     ) : (
                       <p className="text-muted mb-0">
-                        <strong>No conectado a QuickBooks.</strong> Ve a Configuración para conectar tu cuenta y sincronizar ubicaciones automáticamente.
+                        <strong>Conectando automáticamente a QuickBooks...</strong> La aplicación se conectará automáticamente.
                       </p>
                     )}
                     

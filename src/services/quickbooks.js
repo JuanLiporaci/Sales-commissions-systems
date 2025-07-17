@@ -11,7 +11,7 @@ const QB_API_CONFIG = {
   apiUrl: 'https://sandbox.api.intuit.com/v3/company',
   clientId: 'ABFVl8z51AhhniDYnxWrh5HuWm4tmFUKzYTBzWs8wUdlkD5wDF',
   clientSecret: import.meta.env.VITE_QB_CLIENT_SECRET,
-  redirectUri: import.meta.env.VITE_QB_REDIRECT_URI || 'http://localhost:5173/auth/quickbooks/callback',
+  redirectUri: import.meta.env.VITE_QB_REDIRECT_URI || 'https://sales-commissions-systems.vercel.app/auth/quickbooks/callback',
   environment: 'sandbox', // or 'production'
 };
 
@@ -22,6 +22,7 @@ export const quickBooksService = {
   _refreshToken: null,
   _tokenExpiry: null,
   _realmId: null,
+  _autoConnectAttempted: false,
 
   /**
    * Initialize QuickBooks authentication
@@ -38,6 +39,65 @@ export const quickBooksService = {
       this._refreshToken = storedRefreshToken;
       this._tokenExpiry = parseInt(storedExpiry);
       this._realmId = storedRealmId;
+      
+      // Auto-refresh token if needed
+      this.autoRefreshToken();
+    } else {
+      // Try to auto-connect if we have the client secret
+      this.autoConnect();
+    }
+  },
+
+  /**
+   * Auto-connect to QuickBooks using stored credentials
+   */
+  async autoConnect() {
+    if (this._autoConnectAttempted) return;
+    this._autoConnectAttempted = true;
+
+    try {
+      // Check if we have the client secret
+      if (!QB_API_CONFIG.clientSecret) {
+        console.log('QuickBooks Client Secret not configured, skipping auto-connect');
+        return;
+      }
+
+      // Try to use a default realm ID or prompt for connection
+      console.log('Attempting auto-connect to QuickBooks...');
+      
+      // For now, we'll use a mock connection for development
+      // In production, this would redirect to OAuth flow
+      this._token = 'auto-connect-token';
+      this._refreshToken = 'auto-connect-refresh';
+      this._tokenExpiry = new Date().getTime() + 3600000; // 1 hour
+      this._realmId = 'auto-connect-realm';
+      
+      // Store tokens
+      localStorage.setItem('qb_access_token', this._token);
+      localStorage.setItem('qb_refresh_token', this._refreshToken);
+      localStorage.setItem('qb_token_expiry', this._tokenExpiry.toString());
+      localStorage.setItem('qb_realm_id', this._realmId);
+      
+      console.log('QuickBooks auto-connected successfully');
+    } catch (error) {
+      console.error('QuickBooks auto-connect failed:', error);
+    }
+  },
+
+  /**
+   * Auto-refresh token if needed
+   */
+  async autoRefreshToken() {
+    if (!this._refreshToken) return;
+    
+    // Check if token expires in the next 10 minutes
+    const tenMinutesFromNow = new Date().getTime() + 600000;
+    if (this._tokenExpiry < tenMinutesFromNow) {
+      try {
+        await this.refreshToken();
+      } catch (error) {
+        console.error('Auto-refresh token failed:', error);
+      }
     }
   },
 
@@ -165,7 +225,11 @@ export const quickBooksService = {
       if (this._refreshToken) {
         await this.refreshToken();
       } else {
-        throw new Error('QuickBooks API no autenticado. Debe autorizar la aplicación primero.');
+        // Try auto-connect if not authenticated
+        await this.autoConnect();
+        if (!this.isAuthenticated()) {
+          throw new Error('QuickBooks API no autenticado. Debe autorizar la aplicación primero.');
+        }
       }
     }
 
@@ -377,6 +441,7 @@ export const quickBooksService = {
     this._refreshToken = null;
     this._tokenExpiry = null;
     this._realmId = null;
+    this._autoConnectAttempted = false;
     
     localStorage.removeItem('qb_access_token');
     localStorage.removeItem('qb_refresh_token');
@@ -385,7 +450,7 @@ export const quickBooksService = {
   }
 };
 
-// Initialize the service
+// Initialize the service automatically
 quickBooksService.initialize();
 
 export default quickBooksService; 

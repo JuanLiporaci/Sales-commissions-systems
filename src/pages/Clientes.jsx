@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form, Alert, Badge } from 'react-bootstrap';
-import { FiPlus, FiUsers, FiShoppingBag, FiHome, FiBarChart2, FiMapPin, FiSettings, FiLogOut, FiMenu, FiPieChart, FiTrendingUp, FiRefreshCw, FiCloud } from 'react-icons/fi';
+import { FiPlus, FiUsers, FiShoppingBag, FiHome, FiBarChart2, FiMapPin, FiSettings, FiLogOut, FiMenu, FiPieChart, FiTrendingUp, FiRefreshCw, FiCloud, FiAlertCircle } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../lib/AuthContext';
 import { logout } from '../services/auth.ts';
 import { customersService } from '../services/customers.ts';
-import { quickBooksService } from '../services/quickbooks.js';
+import { useQuickBooksAutoConnect } from '../hooks/useQuickBooksAutoConnect';
 
 const Clientes = () => {
   const navigate = useNavigate();
@@ -29,7 +29,9 @@ const Clientes = () => {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [qbConnected, setQbConnected] = useState(false);
+
+  // Use QuickBooks auto-connection hook
+  const { isConnected: qbConnected, isConnecting: qbConnecting, error: qbError, forceReconnect } = useQuickBooksAutoConnect();
 
   // Combinar datos de usuario de localStorage y AuthContext
   const userData = {
@@ -56,9 +58,6 @@ const Clientes = () => {
       }
     }
     
-    // Check QuickBooks connection status
-    setQbConnected(quickBooksService.isAuthenticated());
-    
     const cachedClientes = localStorage.getItem('clientes');
     if (cachedClientes) {
       setClientes(JSON.parse(cachedClientes));
@@ -66,6 +65,13 @@ const Clientes = () => {
       fetchClientes();
     }
   }, []);
+
+  // Auto-sync when QuickBooks connects
+  useEffect(() => {
+    if (qbConnected && clientes.length === 0) {
+      handleSyncFromQuickBooks();
+    }
+  }, [qbConnected]);
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -96,7 +102,8 @@ const Clientes = () => {
 
   const handleSyncFromQuickBooks = async () => {
     if (!qbConnected) {
-      setAlerta({ tipo: 'warning', mensaje: 'Debes conectar con QuickBooks primero desde la página de Configuración.' });
+      setAlerta({ tipo: 'warning', mensaje: 'QuickBooks no está conectado. Intentando conectar automáticamente...' });
+      await forceReconnect();
       return;
     }
 
@@ -229,10 +236,22 @@ const Clientes = () => {
           <div className="navbar-content">
             <div className="d-flex align-items-center">
               <h4 className="mb-0">Clientes</h4>
+              {qbConnecting && (
+                <Badge bg="warning" className="ms-2">
+                  <FiRefreshCw className="me-1 spin" />
+                  Conectando...
+                </Badge>
+              )}
               {qbConnected && (
                 <Badge bg="success" className="ms-2">
                   <FiCloud className="me-1" />
                   QuickBooks Conectado
+                </Badge>
+              )}
+              {qbError && (
+                <Badge bg="danger" className="ms-2">
+                  <FiAlertCircle className="me-1" />
+                  Error de Conexión
                 </Badge>
               )}
             </div>
@@ -255,22 +274,27 @@ const Clientes = () => {
           <h2 className="dashboard-title mb-4">Clientes</h2>
           <Container className="py-4">
             <Row>
-              {/* QuickBooks Sync Section */}
+              {/* QuickBooks Status Section */}
               <Col lg={12} className="mb-4">
-                <Card className="shadow-sm">
+                <Card className={`shadow-sm ${qbConnected ? 'quickbooks-card connected' : 'quickbooks-card disconnected'}`}>
                   <Card.Body>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <h5 className="mb-0">
                         <FiCloud className="me-2 text-primary" />
-                        Sincronización con QuickBooks
+                        Estado de QuickBooks
                       </h5>
                       <Button
                         variant={qbConnected ? "success" : "secondary"}
                         size="sm"
                         onClick={handleSyncFromQuickBooks}
-                        disabled={!qbConnected || syncing}
+                        disabled={!qbConnected || syncing || qbConnecting}
                       >
-                        {syncing ? (
+                        {qbConnecting ? (
+                          <>
+                            <FiRefreshCw className="me-2 spin" />
+                            Conectando...
+                          </>
+                        ) : syncing ? (
                           <>
                             <FiRefreshCw className="me-2 spin" />
                             Sincronizando...
@@ -283,13 +307,33 @@ const Clientes = () => {
                         )}
                       </Button>
                     </div>
-                    {qbConnected ? (
+                    
+                    {qbConnecting ? (
                       <p className="text-muted mb-0">
-                        Conectado a QuickBooks. Los clientes se sincronizan automáticamente con tu cuenta de QuickBooks.
+                        <strong>Conectando automáticamente a QuickBooks...</strong> Esto puede tomar unos segundos.
                       </p>
+                    ) : qbConnected ? (
+                      <p className="text-muted mb-0">
+                        <strong>Conectado automáticamente a QuickBooks.</strong> Los clientes se sincronizan automáticamente con tu cuenta de QuickBooks.
+                      </p>
+                    ) : qbError ? (
+                      <div>
+                        <p className="text-danger mb-2">
+                          <strong>Error de conexión:</strong> {qbError}
+                        </p>
+                        <Button 
+                          variant="outline-primary" 
+                          size="sm"
+                          onClick={forceReconnect}
+                          disabled={qbConnecting}
+                        >
+                          <FiRefreshCw className="me-2" />
+                          Reintentar Conexión
+                        </Button>
+                      </div>
                     ) : (
                       <p className="text-muted mb-0">
-                        <strong>No conectado a QuickBooks.</strong> Ve a Configuración para conectar tu cuenta y sincronizar clientes automáticamente.
+                        <strong>Conectando automáticamente a QuickBooks...</strong> La aplicación se conectará automáticamente.
                       </p>
                     )}
                   </Card.Body>
