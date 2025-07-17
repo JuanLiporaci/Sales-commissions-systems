@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Table, Spinner, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Table, Spinner, Alert, Badge } from 'react-bootstrap';
 import { 
   FiMapPin, 
   FiHome, 
@@ -24,7 +24,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../services/auth.ts';
 import { locationsService } from '../services/locations.js';
-import quickBooksService from '../services/quickbooks.js';
+import { customersService } from '../services/customers.ts';
+import { quickBooksService } from '../services/quickbooks.js';
 import LocationImporter from '../components/LocationImporter.jsx';
 import { auth } from '../lib/firebase.ts';
 import { exportArrayToExcel } from '../utils/excelExport.js';
@@ -40,6 +41,7 @@ const Locations = () => {
   const [importingFromQB, setImportingFromQB] = useState(false);
   const [qbSuccess, setQbSuccess] = useState(false);
   const [qbLocationsCount, setQbLocationsCount] = useState(0);
+  const [qbConnected, setQbConnected] = useState(false);
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
@@ -67,6 +69,9 @@ const Locations = () => {
 
   // Load locations on component mount
   useEffect(() => {
+    // Check QuickBooks connection status
+    setQbConnected(quickBooksService.isAuthenticated());
+    
     const cachedLocations = localStorage.getItem('locations');
     if (cachedLocations) {
       setLocations(JSON.parse(cachedLocations));
@@ -144,17 +149,19 @@ const Locations = () => {
       setError('No se ha autenticado. Por favor inicie sesión nuevamente.');
       return;
     }
+
+    if (!qbConnected) {
+      setError('Debes conectar con QuickBooks primero desde la página de Configuración.');
+      return;
+    }
     
     setImportingFromQB(true);
     setQbSuccess(false);
     setError(null);
     
     try {
-      // First authenticate with QuickBooks (in a real app this would redirect to OAuth)
-      await quickBooksService.authenticate();
-      
-      // Then get customers and convert to locations
-      const locationData = await quickBooksService.importCustomersAsLocations();
+      // Get customers from QuickBooks and convert to locations
+      const locationData = await customersService.syncCustomersFromQuickBooks();
       
       if (!locationData || locationData.length === 0) {
         throw new Error('No se encontraron clientes en QuickBooks para importar.');
@@ -230,7 +237,7 @@ const Locations = () => {
           <button className="sidebar-link" onClick={() => navegarA('/ventas')}> <FiShoppingBag className="nav-icon" /> <span>Ventas</span> </button>
           <button className="sidebar-link" onClick={() => navegarA('/forecast')}> <FiBarChart2 className="nav-icon" /> <span>Forecast</span> </button>
           <button className="sidebar-link" onClick={() => navegarA('/clientes')}> <FiUsers className="nav-icon" /> <span>Clientes</span> </button>
-          <button className="sidebar-link" onClick={() => navegarA('/locations')}> <FiMapPin className="nav-icon" /> <span>Ubicaciones</span> </button>
+          <button className="sidebar-link active" onClick={() => navegarA('/locations')}> <FiMapPin className="nav-icon" /> <span>Ubicaciones</span> </button>
           <button className="sidebar-link" onClick={() => navegarA('/estadisticas')}>
             <FiBarChart2 className="nav-icon" /> <span>Estadísticas</span>
           </button>
@@ -258,6 +265,12 @@ const Locations = () => {
           <div className="navbar-content">
             <div className="d-flex align-items-center">
               <h4 className="mb-0">Ubicaciones de Entrega</h4>
+              {qbConnected && (
+                <Badge bg="success" className="ms-2">
+                  <FiCloud className="me-1" />
+                  QuickBooks Conectado
+                </Badge>
+              )}
             </div>
             <div className="navbar-user d-flex align-items-center">
               <Button 
@@ -275,192 +288,186 @@ const Locations = () => {
         </div>
 
         <div className="dashboard-content">
-          <Container fluid>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h5 className="mb-0">
-                <FiMapPin className="me-2 text-primary" /> 
-                Gestión de Ubicaciones
-              </h5>
-              <div className="d-flex gap-2">
-                <Button 
-                  variant="outline-primary" 
-                  size="sm"
-                  className="d-flex align-items-center"
-                  onClick={() => setShowImporter(!showImporter)}
-                >
-                  <FiUpload className="me-1" /> 
-                  {showImporter ? 'Ocultar Importador' : 'Importar CSV'}
-                </Button>
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  className="d-flex align-items-center"
-                  onClick={importFromQuickBooks}
-                  disabled={importingFromQB}
-                >
-                  <FiCloud className="me-1" />
-                  {importingFromQB ? 'Importando...' : 'QuickBooks'}
-                </Button>
-                <Button 
-                  variant="outline-success" 
-                  size="sm"
-                  className="d-flex align-items-center"
-                  onClick={exportToExcel}
-                  disabled={locations.length === 0}
-                >
-                  <FiDownload className="me-1" /> Exportar Excel
-                </Button>
-                <Button 
-                  variant="outline-secondary" 
-                  size="sm"
-                  className="d-flex align-items-center"
-                  onClick={fetchLocations}
-                >
-                  <FiRefreshCw className="me-1" /> Actualizar
-                </Button>
-              </div>
-            </div>
-            
-            {error && (
-              <Alert 
-                variant="danger" 
-                className="d-flex align-items-start mb-4"
-                onClose={() => setError(null)}
-                dismissible
-              >
-                <div>
-                  <div className="d-flex align-items-center">
-                    <FiAlertCircle className="me-2" /> {error}
-                  </div>
-                  {(error.includes('permiso') || error.includes('autenticado')) && (
-                    <div className="mt-2 small">
-                      <Button 
-                        variant="outline-danger" 
-                        size="sm" 
-                        onClick={refreshAuth} 
-                        className="mt-1 d-flex align-items-center"
-                      >
-                        <FiLogOut className="me-1" /> Renovar sesión
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </Alert>
-            )}
-            
-            {qbSuccess && (
-              <Alert 
-                variant="success" 
-                className="d-flex align-items-center mb-4"
-                onClose={() => setQbSuccess(false)}
-                dismissible
-              >
-                <FiCheck className="me-2" /> Se importaron {qbLocationsCount} ubicaciones desde QuickBooks correctamente.
-              </Alert>
-            )}
-            
-            {showImporter && (
-              <Row className="mb-4">
-                <Col md={12}>
-                  <LocationImporter onImportComplete={handleImportComplete} />
-                </Col>
-              </Row>
-            )}
-            
-            <Card className="shadow-sm">
-              <Card.Header className="py-3">
-                <div className="d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0">Ubicaciones de Entrega</h5>
-                  <Button 
-                    variant="primary" 
-                    size="sm"
-                    className="d-flex align-items-center"
-                  >
-                    <FiPlusCircle className="me-1" /> Agregar Ubicación
-                  </Button>
-                </div>
-              </Card.Header>
-              <div className="table-responsive">
-                {loading ? (
-                  <div className="text-center py-5">
-                    <Spinner animation="border" role="status" variant="primary">
-                      <span className="visually-hidden">Cargando...</span>
-                    </Spinner>
-                    <p className="mt-3 text-muted">Cargando ubicaciones...</p>
-                  </div>
-                ) : locations.length > 0 ? (
-                  <Table hover className="mb-0">
-                    <thead className="table-light">
-                      <tr>
-                        <th className="py-3">Nombre</th>
-                        <th className="py-3">Dirección</th>
-                        <th className="py-3">Identificador Vendedor</th>
-                        <th className="py-3">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {locations.map(location => (
-                        <tr key={location.id}>
-                          <td className="py-3">{location.name}</td>
-                          <td className="py-3">{location.address}</td>
-                          <td className="py-3">{location.vendedorIdentificador || '-'}</td>
-                          <td className="py-3">
-                            <div className="d-flex gap-2">
-                              <Button 
-                                variant="outline-primary" 
-                                size="sm"
-                                className="btn-icon"
-                                title="Editar"
-                              >
-                                <FiEdit />
-                              </Button>
-                              <Button 
-                                variant="outline-danger" 
-                                size="sm"
-                                className="btn-icon"
-                                title="Eliminar"
-                              >
-                                <FiTrash2 />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                ) : (
-                  <div className="text-center py-5">
-                    <div className="activity-empty">
-                      <div className="empty-icon">
-                        <FiMapPin />
-                      </div>
-                      <h3>No hay ubicaciones</h3>
-                      <p className="text-muted mb-4">
-                        Agrega ubicaciones de entrega para tus clientes o importa la información desde un archivo CSV o QuickBooks.
-                      </p>
-                      <div className="d-flex gap-3 justify-content-center">
-                        <Button 
-                          variant="primary"
+          <h2 className="dashboard-title mb-4">Ubicaciones de Entrega</h2>
+          <Container className="py-4">
+            <Row>
+              {/* QuickBooks Integration Section */}
+              <Col lg={12} className="mb-4">
+                <Card className="shadow-sm">
+                  <Card.Body>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h5 className="mb-0">
+                        <FiCloud className="me-2 text-primary" />
+                        Integración con QuickBooks
+                      </h5>
+                      <div className="d-flex gap-2">
+                        <Button
+                          variant={qbConnected ? "success" : "secondary"}
+                          size="sm"
+                          onClick={importFromQuickBooks}
+                          disabled={!qbConnected || importingFromQB}
+                        >
+                          {importingFromQB ? (
+                            <>
+                              <FiRefreshCw className="me-2 spin" />
+                              Importando...
+                            </>
+                          ) : (
+                            <>
+                              <FiCloud className="me-2" />
+                              Importar desde QuickBooks
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
                           onClick={() => setShowImporter(true)}
                         >
-                          <FiUpload className="me-2" /> Importar CSV
-                        </Button>
-                        <Button 
-                          variant="outline-primary"
-                          onClick={importFromQuickBooks}
-                          disabled={importingFromQB}
-                        >
-                          <FiCloud className="me-2" /> Importar de QuickBooks
+                          <FiUpload className="me-2" />
+                          Importar CSV
                         </Button>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </Card>
+                    
+                    {qbConnected ? (
+                      <p className="text-muted mb-0">
+                        Conectado a QuickBooks. Las ubicaciones se sincronizan automáticamente con los clientes de tu cuenta de QuickBooks.
+                      </p>
+                    ) : (
+                      <p className="text-muted mb-0">
+                        <strong>No conectado a QuickBooks.</strong> Ve a Configuración para conectar tu cuenta y sincronizar ubicaciones automáticamente.
+                      </p>
+                    )}
+                    
+                    {qbSuccess && (
+                      <Alert variant="success" className="mt-3">
+                        <FiCheck className="me-2" />
+                        Se importaron {qbLocationsCount} ubicaciones desde QuickBooks exitosamente.
+                      </Alert>
+                    )}
+                  </Card.Body>
+                </Card>
+              </Col>
+
+              {/* Error Display */}
+              {error && (
+                <Col lg={12} className="mb-4">
+                  <Alert variant="danger" onClose={() => setError(null)} dismissible>
+                    <FiAlertCircle className="me-2" />
+                    {error}
+                    {error.includes('permission') && (
+                      <div className="mt-2">
+                        <Button variant="outline-danger" size="sm" onClick={refreshAuth}>
+                          Refrescar Autenticación
+                        </Button>
+                      </div>
+                    )}
+                  </Alert>
+                </Col>
+              )}
+
+              {/* Locations Table */}
+              <Col lg={12}>
+                <Card className="shadow-sm">
+                  <Card.Body>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h5 className="mb-0">
+                        <FiMapPin className="me-2 text-primary" />
+                        Lista de Ubicaciones
+                        <Badge bg="secondary" className="ms-2">
+                          {locations.length} ubicaciones
+                        </Badge>
+                      </h5>
+                      <Button
+                        variant="outline-success"
+                        size="sm"
+                        onClick={exportToExcel}
+                        disabled={locations.length === 0}
+                      >
+                        <FiDownload className="me-2" />
+                        Exportar a Excel
+                      </Button>
+                    </div>
+
+                    {loading ? (
+                      <div className="text-center py-4">
+                        <Spinner animation="border" variant="primary" />
+                        <p className="mt-2">Cargando ubicaciones...</p>
+                      </div>
+                    ) : locations.length === 0 ? (
+                      <div className="text-center py-4">
+                        <FiMapPin size={48} className="text-muted mb-3" />
+                        <p className="text-muted">No hay ubicaciones registradas.</p>
+                        {qbConnected && (
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm"
+                            onClick={importFromQuickBooks}
+                            disabled={importingFromQB}
+                          >
+                            <FiCloud className="me-2" />
+                            Importar desde QuickBooks
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="table-responsive">
+                        <Table striped bordered hover>
+                          <thead>
+                            <tr>
+                              <th>Nombre</th>
+                              <th>Dirección</th>
+                              <th>Ciudad</th>
+                              <th>Estado</th>
+                              <th>Contacto</th>
+                              <th>Teléfono</th>
+                              <th>Origen</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {locations.map((location, index) => (
+                              <tr key={index}>
+                                <td>
+                                  <strong>{location.name}</strong>
+                                  {location.qbCustomerId && (
+                                    <Badge bg="success" className="ms-2">
+                                      QB
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td>{location.address}</td>
+                                <td>{location.city}</td>
+                                <td>{location.state}</td>
+                                <td>{location.contactName}</td>
+                                <td>{location.contactPhone}</td>
+                                <td>
+                                  {location.qbCustomerId ? (
+                                    <Badge bg="success">QuickBooks</Badge>
+                                  ) : (
+                                    <Badge bg="info">Manual</Badge>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      </div>
+                    )}
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
           </Container>
         </div>
       </main>
+
+      {/* Location Importer Modal */}
+      <LocationImporter 
+        show={showImporter} 
+        onHide={() => setShowImporter(false)} 
+        onImportComplete={handleImportComplete}
+      />
     </div>
   );
 };

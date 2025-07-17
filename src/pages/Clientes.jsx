@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Form, Alert } from 'react-bootstrap';
-import { FiPlus, FiUsers, FiShoppingBag, FiHome, FiBarChart2, FiMapPin, FiSettings, FiLogOut, FiMenu, FiPieChart, FiTrendingUp } from 'react-icons/fi';
+import { Container, Row, Col, Card, Button, Form, Alert, Badge } from 'react-bootstrap';
+import { FiPlus, FiUsers, FiShoppingBag, FiHome, FiBarChart2, FiMapPin, FiSettings, FiLogOut, FiMenu, FiPieChart, FiTrendingUp, FiRefreshCw, FiCloud } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../lib/AuthContext';
 import { logout } from '../services/auth.ts';
+import { customersService } from '../services/customers.ts';
+import { quickBooksService } from '../services/quickbooks.js';
 
 const Clientes = () => {
   const navigate = useNavigate();
@@ -25,6 +27,9 @@ const Clientes = () => {
   });
   const [alerta, setAlerta] = useState(null);
   const [clientes, setClientes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [qbConnected, setQbConnected] = useState(false);
 
   // Combinar datos de usuario de localStorage y AuthContext
   const userData = {
@@ -39,13 +44,21 @@ const Clientes = () => {
   useEffect(() => {
     async function fetchClientes() {
       try {
-        const locations = await import('../services/locations.js').then(m => m.locationsService.getAllLocations());
-        setClientes(locations);
-        localStorage.setItem('clientes', JSON.stringify(locations));
+        setLoading(true);
+        const customers = await customersService.getCustomers();
+        setClientes(customers);
+        localStorage.setItem('clientes', JSON.stringify(customers));
       } catch (err) {
+        console.error('Error fetching customers:', err);
         setClientes([]);
+      } finally {
+        setLoading(false);
       }
     }
+    
+    // Check QuickBooks connection status
+    setQbConnected(quickBooksService.isAuthenticated());
+    
     const cachedClientes = localStorage.getItem('clientes');
     if (cachedClientes) {
       setClientes(JSON.parse(cachedClientes));
@@ -78,6 +91,34 @@ const Clientes = () => {
       localStorage.setItem('clientes', JSON.stringify(updatedClientes));
     } catch (err) {
       setAlerta({ tipo: 'danger', mensaje: 'Error al guardar el cliente.' });
+    }
+  };
+
+  const handleSyncFromQuickBooks = async () => {
+    if (!qbConnected) {
+      setAlerta({ tipo: 'warning', mensaje: 'Debes conectar con QuickBooks primero desde la página de Configuración.' });
+      return;
+    }
+
+    setSyncing(true);
+    setAlerta(null);
+    
+    try {
+      const syncedCustomers = await customersService.syncCustomersFromQuickBooks();
+      setClientes(syncedCustomers);
+      localStorage.setItem('clientes', JSON.stringify(syncedCustomers));
+      setAlerta({ 
+        tipo: 'success', 
+        mensaje: `Sincronización exitosa: ${syncedCustomers.length} clientes actualizados desde QuickBooks.` 
+      });
+    } catch (err) {
+      console.error('Error syncing from QuickBooks:', err);
+      setAlerta({ 
+        tipo: 'danger', 
+        mensaje: `Error al sincronizar desde QuickBooks: ${err.message}` 
+      });
+    } finally {
+      setSyncing(false);
     }
   };
   
@@ -188,6 +229,12 @@ const Clientes = () => {
           <div className="navbar-content">
             <div className="d-flex align-items-center">
               <h4 className="mb-0">Clientes</h4>
+              {qbConnected && (
+                <Badge bg="success" className="ms-2">
+                  <FiCloud className="me-1" />
+                  QuickBooks Conectado
+                </Badge>
+              )}
             </div>
             <div className="navbar-user d-flex align-items-center">
               <Button 
@@ -207,11 +254,61 @@ const Clientes = () => {
         <div className="dashboard-content">
           <h2 className="dashboard-title mb-4">Clientes</h2>
           <Container className="py-4">
-            <Row className="justify-content-center">
-              <Col md={8} lg={6}>
+            <Row>
+              {/* QuickBooks Sync Section */}
+              <Col lg={12} className="mb-4">
                 <Card className="shadow-sm">
                   <Card.Body>
-                    <h4 className="mb-4 d-flex align-items-center"><FiUsers className="me-2 text-primary" /> Agregar Cliente</h4>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h5 className="mb-0">
+                        <FiCloud className="me-2 text-primary" />
+                        Sincronización con QuickBooks
+                      </h5>
+                      <Button
+                        variant={qbConnected ? "success" : "secondary"}
+                        size="sm"
+                        onClick={handleSyncFromQuickBooks}
+                        disabled={!qbConnected || syncing}
+                      >
+                        {syncing ? (
+                          <>
+                            <FiRefreshCw className="me-2 spin" />
+                            Sincronizando...
+                          </>
+                        ) : (
+                          <>
+                            <FiRefreshCw className="me-2" />
+                            Sincronizar desde QuickBooks
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {qbConnected ? (
+                      <p className="text-muted mb-0">
+                        Conectado a QuickBooks. Los clientes se sincronizan automáticamente con tu cuenta de QuickBooks.
+                      </p>
+                    ) : (
+                      <p className="text-muted mb-0">
+                        <strong>No conectado a QuickBooks.</strong> Ve a Configuración para conectar tu cuenta y sincronizar clientes automáticamente.
+                      </p>
+                    )}
+                  </Card.Body>
+                </Card>
+              </Col>
+
+              {/* Add Customer Form */}
+              <Col md={6} className="mb-4">
+                <Card className="shadow-sm">
+                  <Card.Body>
+                    <h4 className="mb-4 d-flex align-items-center">
+                      <FiUsers className="me-2 text-primary" /> 
+                      Agregar Cliente
+                      {qbConnected && (
+                        <Badge bg="info" className="ms-2">
+                          Manual
+                        </Badge>
+                      )}
+                    </h4>
                     {alerta && <Alert variant={alerta.tipo} onClose={() => setAlerta(null)} dismissible>{alerta.mensaje}</Alert>}
                     <Form onSubmit={handleSubmit}>
                       <Form.Group className="mb-3">
@@ -248,7 +345,7 @@ const Clientes = () => {
                       </Form.Group>
                       <Form.Group className="mb-3">
                         <Form.Label>Notas</Form.Label>
-                        <Form.Control name="notes" value={form.notes} onChange={handleChange} as="textarea" rows={2} />
+                        <Form.Control name="notes" value={form.notes} onChange={handleChange} as="textarea" rows={3} />
                       </Form.Group>
                       <div className="d-flex justify-content-end">
                         <Button type="submit" variant="primary" className="px-4 py-2 rounded-pill">
@@ -256,6 +353,70 @@ const Clientes = () => {
                         </Button>
                       </div>
                     </Form>
+                  </Card.Body>
+                </Card>
+              </Col>
+
+              {/* Customers List */}
+              <Col md={6} className="mb-4">
+                <Card className="shadow-sm">
+                  <Card.Body>
+                    <h4 className="mb-4 d-flex align-items-center">
+                      <FiUsers className="me-2 text-primary" /> 
+                      Lista de Clientes
+                      <Badge bg="secondary" className="ms-2">
+                        {clientes.length} clientes
+                      </Badge>
+                    </h4>
+                    
+                    {loading ? (
+                      <div className="text-center py-4">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Cargando...</span>
+                        </div>
+                        <p className="mt-2">Cargando clientes...</p>
+                      </div>
+                    ) : clientes.length === 0 ? (
+                      <div className="text-center py-4">
+                        <FiUsers size={48} className="text-muted mb-3" />
+                        <p className="text-muted">No hay clientes registrados.</p>
+                        {qbConnected && (
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm"
+                            onClick={handleSyncFromQuickBooks}
+                            disabled={syncing}
+                          >
+                            <FiRefreshCw className="me-2" />
+                            Sincronizar desde QuickBooks
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="customers-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        {clientes.map((cliente, index) => (
+                          <div key={index} className="customer-item p-3 border-bottom">
+                            <div className="d-flex justify-content-between align-items-start">
+                              <div>
+                                <h6 className="mb-1">{cliente.name}</h6>
+                                <p className="text-muted mb-1 small">{cliente.address}</p>
+                                {cliente.city && cliente.state && (
+                                  <p className="text-muted mb-1 small">{cliente.city}, {cliente.state}</p>
+                                )}
+                                {cliente.contactPhone && (
+                                  <p className="text-muted mb-0 small">📞 {cliente.contactPhone}</p>
+                                )}
+                              </div>
+                              {cliente.qbCustomerId && (
+                                <Badge bg="success" className="ms-2">
+                                  QB
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </Card.Body>
                 </Card>
               </Col>
