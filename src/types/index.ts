@@ -10,9 +10,20 @@ export interface Sale {
 export interface Customer {
   id: string;
   name: string;
-  creditLimit: number;
-  creditDays: number;
-  currentCredit: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  contactName?: string;
+  contactPhone?: string;
+  email?: string;
+  notes?: string;
+  creditLimit?: number;
+  creditDays?: number;
+  currentCredit?: number;
+  qbCustomerId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Delivery {
@@ -39,4 +50,20 @@ export interface DashboardMetrics {
   deliveriesThisMonth: number;
   averageDollarsPerDelivery: number;
   deliveriesPerArea: Record<string, number>;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  cost?: number;
+  sku?: string;
+  type?: string;
+  active?: boolean;
+  trackQuantity?: boolean;
+  quantityOnHand?: number;
+  qbProductId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 } 

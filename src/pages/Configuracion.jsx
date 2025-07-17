@@ -2,9 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Form, Alert, Image } from 'react-bootstrap';
 import { FiSettings, FiHome, FiShoppingBag, FiBarChart2, FiUsers, FiMapPin, FiLogOut, FiUser, FiUpload, FiCheck } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
-import { firestoreService } from '../lib/FirestoreService';
+
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import QuickBooksAuth from '../components/QuickBooksAuth';
+import QuickBooksSync from '../components/QuickBooksSync';
 
 const Configuracion = () => {
   const navigate = useNavigate();
@@ -171,66 +173,92 @@ const Configuracion = () => {
       <main className="dashboard-main">
         <Container className="py-4">
           <Row className="justify-content-center">
-            <Col md={8} lg={6}>
-              <Card className="shadow-sm">
-                <Card.Body>
-                  <h4 className="mb-4 d-flex align-items-center"><FiSettings className="me-2 text-primary" /> Configuración de Usuario</h4>
-                  {alerta && <Alert variant={alerta.tipo} onClose={() => setAlerta(null)} dismissible>{alerta.mensaje}</Alert>}
-                  
-                  {loadingProfile ? (
-                    <div className="text-center py-3">
-                      <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Cargando...</span>
-                      </div>
-                      <p className="mt-2">Cargando perfil de usuario...</p>
-                    </div>
-                  ) : (
-                    <Form onSubmit={handleSubmit}>
-                      <Form.Group className="mb-3 text-center">
-                        <Form.Label>Foto de Perfil</Form.Label>
-                        <div className="mb-2">
-                          {form.photoURL ? (
-                            <Image src={form.photoURL} roundedCircle width={80} height={80} />
-                          ) : (
-                            <div className="user-avatar-lg">{form.displayName ? form.displayName[0].toUpperCase() : <FiUser size={40} />}</div>
-                          )}
+            <Col lg={10}>
+              <h4 className="mb-4 d-flex align-items-center">
+                <FiSettings className="me-2 text-primary" /> Configuración
+              </h4>
+              
+              {alerta && (
+                <Alert variant={alerta.tipo} onClose={() => setAlerta(null)} dismissible>
+                  {alerta.mensaje}
+                </Alert>
+              )}
+              
+              <Row>
+                {/* Configuración de Usuario */}
+                <Col md={6} className="mb-4">
+                  <Card className="shadow-sm h-100">
+                    <Card.Body>
+                      <h5 className="mb-4">Configuración de Usuario</h5>
+                      
+                      {loadingProfile ? (
+                        <div className="text-center py-3">
+                          <div className="spinner-border text-primary" role="status">
+                            <span className="visually-hidden">Cargando...</span>
+                          </div>
+                          <p className="mt-2">Cargando perfil de usuario...</p>
                         </div>
-                        <Button variant="outline-primary" onClick={() => fileInputRef.current.click()} className="d-flex align-items-center mx-auto">
-                          <FiUpload className="me-2" /> Subir Foto
-                        </Button>
-                        <Form.Control type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
-                      </Form.Group>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Nombre</Form.Label>
-                        <Form.Control name="displayName" value={form.displayName} onChange={handleChange} placeholder="Tu nombre" />
-                      </Form.Group>
-                      <Form.Group className="mb-3">
-                        <Form.Label>Identificador</Form.Label>
-                        <Form.Control name="identificador" value={form.identificador} onChange={handleChange} placeholder="Ej: H1/DALLAS1" />
-                      </Form.Group>
-                      <div className="d-flex justify-content-end">
-                        <Button 
-                          type="submit" 
-                          variant="primary" 
-                          className="px-4 py-2 rounded-pill"
-                          disabled={loading}
-                        >
-                          {loading ? (
-                            <>
-                              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                              Guardando...
-                            </>
-                          ) : (
-                            <>
-                              <FiCheck className="me-2" /> Guardar Cambios
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </Form>
-                  )}
-                </Card.Body>
-              </Card>
+                      ) : (
+                        <Form onSubmit={handleSubmit}>
+                          <Form.Group className="mb-3 text-center">
+                            <Form.Label>Foto de Perfil</Form.Label>
+                            <div className="mb-2">
+                              {form.photoURL ? (
+                                <Image src={form.photoURL} roundedCircle width={80} height={80} />
+                              ) : (
+                                <div className="user-avatar-lg">{form.displayName ? form.displayName[0].toUpperCase() : <FiUser size={40} />}</div>
+                              )}
+                            </div>
+                            <Button variant="outline-primary" onClick={() => fileInputRef.current.click()} className="d-flex align-items-center mx-auto">
+                              <FiUpload className="me-2" /> Subir Foto
+                            </Button>
+                            <Form.Control type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
+                          </Form.Group>
+                          <Form.Group className="mb-3">
+                            <Form.Label>Nombre</Form.Label>
+                            <Form.Control name="displayName" value={form.displayName} onChange={handleChange} placeholder="Tu nombre" />
+                          </Form.Group>
+                          <Form.Group className="mb-3">
+                            <Form.Label>Identificador</Form.Label>
+                            <Form.Control name="identificador" value={form.identificador} onChange={handleChange} placeholder="Ej: H1/DALLAS1" />
+                          </Form.Group>
+                          <div className="d-flex justify-content-end">
+                            <Button 
+                              type="submit" 
+                              variant="primary" 
+                              className="px-4 py-2 rounded-pill"
+                              disabled={loading}
+                            >
+                              {loading ? (
+                                <>
+                                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                  Guardando...
+                                </>
+                              ) : (
+                                <>
+                                  <FiCheck className="me-2" /> Guardar Cambios
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </Form>
+                      )}
+                    </Card.Body>
+                  </Card>
+                </Col>
+                
+                {/* Integración QuickBooks */}
+                <Col md={6} className="mb-4">
+                  <QuickBooksAuth />
+                </Col>
+              </Row>
+              
+              {/* Sincronización QuickBooks */}
+              <Row>
+                <Col lg={12} className="mb-4">
+                  <QuickBooksSync />
+                </Col>
+              </Row>
             </Col>
           </Row>
         </Container>

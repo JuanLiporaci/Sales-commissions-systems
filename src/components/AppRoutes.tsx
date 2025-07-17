@@ -12,6 +12,7 @@ import Forecast from '../pages/Forecast';
 import Clientes from '../pages/Clientes';
 import Locations from '../pages/Locations';
 import Configuracion from '../pages/Configuracion';
+import QuickBooksCallback from '../pages/QuickBooksCallback';
 import MetricasFinancierasRedirect from './MetricasFinancierasRedirect';
 import AdminDashboard from '../pages/AdminDashboard';
 import Inventory from '../pages/Inventory';
@@ -88,6 +89,7 @@ const AppRoutes = () => {
       <Route path="/finanzas" element={<PrivateRoute noLayout={true}><MetricasFinancierasRedirect /></PrivateRoute>} />
       <Route path="/metricas" element={<PrivateRoute noLayout={true}><MetricasFinancierasRedirect /></PrivateRoute>} />
       <Route path="/configuracion" element={<PrivateRoute noLayout={true}><Configuracion /></PrivateRoute>} />
+      <Route path="/auth/quickbooks/callback" element={<QuickBooksCallback />} />
       <Route path="/admin" element={<PrivateRoute noLayout={true}><AdminLayout /></PrivateRoute>}>
         <Route index element={<AdminDashboard />} />
         <Route path="metricas-financieras" element={<MetricasFinancieras />} />
