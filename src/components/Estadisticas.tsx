@@ -69,7 +69,7 @@ const formatDate = (dateString: string) => {
 
 // Función para agrupar ventas por cliente
 const agruparPorCliente = (ventas: Venta[]) => {
-  const agrupado = ventas.reduce((acc, venta) => {
+  const agrupado: any = ventas.reduce((acc: any, venta) => {
     const cliente = venta.cliente || 'Sin Cliente';
     if (!acc[cliente]) {
       acc[cliente] = {
@@ -88,7 +88,7 @@ const agruparPorCliente = (ventas: Venta[]) => {
 
 // Función para agrupar ventas por mes
 const agruparPorMes = (ventas: Venta[]) => {
-  const agrupado = ventas.reduce((acc, venta) => {
+  const agrupado: any = ventas.reduce((acc: any, venta) => {
     const fecha = new Date(venta.fechaRegistro);
     const mes = `${fecha.getMonth() + 1}/${fecha.getFullYear()}`;
     

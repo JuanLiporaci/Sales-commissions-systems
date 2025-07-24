@@ -2,12 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Box, Heading, Spinner, Center } from '@chakra-ui/react';
 
 const ChartSolucion = () => {
-  const chartRef = useRef(null);
+  const chartRef = useRef<any>(null);
   const [chartLoaded, setChartLoaded] = useState(false);
   const [chartError, setChartError] = useState(false);
 
   useEffect(() => {
-    let chartInstance = null;
+    let chartInstance: any = null;
     
     const loadChartLibrary = async () => {
       try {

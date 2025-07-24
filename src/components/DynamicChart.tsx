@@ -13,7 +13,7 @@ const DynamicChart = () => {
       try {
         console.log('Cargando Chart.js dinámicamente...');
         const { Chart } = await import('chart.js');
-        const { Bar, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } = await import('chart.js');
+        const { CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } = await import('chart.js');
         const { Bar: BarComponent } = await import('react-chartjs-2');
         
         Chart.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -72,7 +72,7 @@ const DynamicChart = () => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top' as const,
+        position: 'top' as any,
       },
       title: {
         display: true,
