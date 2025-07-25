@@ -7,12 +7,12 @@
 
 // Configuration for QuickBooks API
 const QB_API_CONFIG = {
-  baseUrl: 'https://sandbox-accounts.platform.intuit.com/v1/oauth2',
-  apiUrl: 'https://sandbox.api.intuit.com/v3/company',
-  clientId: 'ABFVl8z51AhhniDYnxWrh5HuWm4tmFUKzYTBzWs8wUdlkD5wDF',
-  clientSecret: import.meta.env.VITE_QB_CLIENT_SECRET,
-  redirectUri: import.meta.env.VITE_QB_REDIRECT_URI || 'https://sales-commissions-systems.vercel.app/auth/quickbooks/callback',
-  environment: 'sandbox', // or 'production'
+  baseUrl: 'https://accounts.platform.intuit.com/v1/oauth2',
+  apiUrl: 'https://api.intuit.com/v3/company',
+  clientId: 'ABeUukPao9RA1rdByKMtbow5HSWo0L9LAyJm6H20tqHgQvX10q',
+  clientSecret: 'evZIr3WqKoT0P9fdvtuPeD8qX12GMiMhCDKaFVnr',
+  redirectUri: 'https://sales-commissions-systems.vercel.app/auth/quickbooks/callback',
+  environment: 'production',
 };
 
 // QuickBooks API Client
@@ -62,23 +62,30 @@ export const quickBooksService = {
         return;
       }
 
-      // Try to use a default realm ID or prompt for connection
-      console.log('Attempting auto-connect to QuickBooks...');
-      
-      // For now, we'll use a mock connection for development
-      // In production, this would redirect to OAuth flow
-      this._token = 'auto-connect-token';
-      this._refreshToken = 'auto-connect-refresh';
-      this._tokenExpiry = new Date().getTime() + 3600000; // 1 hour
-      this._realmId = 'auto-connect-realm';
-      
-      // Store tokens
-      localStorage.setItem('qb_access_token', this._token);
-      localStorage.setItem('qb_refresh_token', this._refreshToken);
-      localStorage.setItem('qb_token_expiry', this._tokenExpiry.toString());
-      localStorage.setItem('qb_realm_id', this._realmId);
-      
-      console.log('QuickBooks auto-connected successfully');
+      // Check for existing valid tokens
+      const storedToken = localStorage.getItem('qb_access_token');
+      const storedRefreshToken = localStorage.getItem('qb_refresh_token');
+      const storedExpiry = localStorage.getItem('qb_token_expiry');
+      const storedRealmId = localStorage.getItem('qb_realm_id');
+
+      if (storedToken && storedRefreshToken && storedExpiry && storedRealmId) {
+        // Use existing tokens
+        this._token = storedToken;
+        this._refreshToken = storedRefreshToken;
+        this._tokenExpiry = parseInt(storedExpiry);
+        this._realmId = storedRealmId;
+        
+        // Check if token is still valid
+        if (this._tokenExpiry > new Date().getTime()) {
+          console.log('QuickBooks auto-connected using existing tokens');
+          return;
+        } else {
+          // Token expired, try to refresh
+          await this.refreshToken();
+        }
+      } else {
+        console.log('No existing QuickBooks tokens found, manual connection required');
+      }
     } catch (error) {
       console.error('QuickBooks auto-connect failed:', error);
     }
