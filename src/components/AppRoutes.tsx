@@ -20,6 +20,8 @@ import Reportes from '../pages/Reportes';
 import AdminLayout from './AdminLayout';
 import DespachosAdmin from '../pages/DespachosAdmin';
 import AdminComisiones from '../pages/AdminComisiones';
+import TermsAndConditions from '../pages/TermsAndConditions';
+import PrivacyPolicy from '../pages/PrivacyPolicy';
 
 const PrivateRoute = ({ children, noLayout }: { children: React.ReactNode, noLayout?: boolean }) => {
   const { user, loading } = useAuth();
@@ -98,6 +100,8 @@ const AppRoutes = () => {
       </Route>
       <Route path="/inventario" element={<PrivateRoute><Inventory /></PrivateRoute>} />
       <Route path="/reportes" element={<PrivateRoute><Reportes /></PrivateRoute>} />
+      <Route path="/terms" element={<TermsAndConditions />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
