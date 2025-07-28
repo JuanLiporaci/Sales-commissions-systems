@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text, Flex, VStack, Avatar } from '@chakra-ui/react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FiHome, FiShoppingBag, FiBarChart2, FiUsers, FiMapPin, FiSettings, FiLogOut, FiPieChart, FiDollarSign } from 'react-icons/fi';
+import { FiHome, FiShoppingBag, FiBarChart2, FiUsers, FiMapPin, FiSettings, FiLogOut, FiPieChart, FiDollarSign, FiDatabase } from 'react-icons/fi';
 import { useAuth } from '../lib/AuthContext';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -97,6 +97,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, currentPath }) => {
           onClick={() => navegarA('/configuracion')}
         >
           <FiSettings className="nav-icon" /> <span>Configuración</span>
+        </button>
+        
+        <button 
+          className={`sidebar-link ${activePath === '/quickbooks-test' ? 'active' : ''}`}
+          onClick={() => navegarA('/quickbooks-test')}
+        >
+          <FiDatabase className="nav-icon" /> <span>QuickBooks Test</span>
         </button>
         
         <button 

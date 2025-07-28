@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { useAuth } from '../lib/AuthContext';
 import { logout } from '../services/auth.ts';
 import { Button } from 'react-bootstrap';
+import QuickBooksDataDisplay from '../components/QuickBooksDataDisplay';
 
 const Dashboard = () => {
   const [ventas, setVentas] = useState([]);
@@ -288,6 +289,16 @@ const Dashboard = () => {
                 <h3 className="stat-title">Última Venta</h3>
                 <p className="stat-value">{stats.ultimaVenta}</p>
               </div>
+            </div>
+          </div>
+
+          {/* QuickBooks Data */}
+          <div className="dashboard-panel mt-4">
+            <div className="panel-header">
+              <h3 className="mb-0">Datos de QuickBooks</h3>
+            </div>
+            <div className="panel-body">
+              <QuickBooksDataDisplay />
             </div>
           </div>
 
