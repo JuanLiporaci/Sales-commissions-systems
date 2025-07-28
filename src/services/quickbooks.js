@@ -128,10 +128,11 @@ export const quickBooksService = {
     const authUrl = `${QB_API_CONFIG.baseUrl}/authorize?` +
       `client_id=${QB_API_CONFIG.clientId}&` +
       `response_type=code&` +
-      `scope=com.intuit.quickbooks.accounting&` +
+      `scope=com.intuit.quickbooks.accounting com.intuit.quickbooks.payment&` +
       `redirect_uri=${encodeURIComponent(QB_API_CONFIG.redirectUri)}&` +
       `state=${Math.random().toString(36).substring(7)}`;
 
+    console.log('🔗 URL de autorización:', authUrl);
     window.location.href = authUrl;
   },
 
@@ -143,11 +144,19 @@ export const quickBooksService = {
    */
   async handleCallback(code, realmId) {
     try {
-      const response = await fetch(`${QB_API_CONFIG.baseUrl}/tokens/bearer`, {
+      console.log('🔄 Procesando callback con:', { code: code?.substring(0, 10) + '...', realmId });
+      
+      const tokenUrl = `${QB_API_CONFIG.baseUrl}/tokens/bearer`;
+      const authHeader = `Basic ${btoa(`${QB_API_CONFIG.clientId}:${QB_API_CONFIG.clientSecret}`)}`;
+      
+      console.log('🔗 URL de token:', tokenUrl);
+      console.log('🔑 Auth header:', authHeader.substring(0, 20) + '...');
+      
+      const response = await fetch(tokenUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${btoa(`${QB_API_CONFIG.clientId}:${QB_API_CONFIG.clientSecret}`)}`
+          'Authorization': authHeader
         },
         body: new URLSearchParams({
           grant_type: 'authorization_code',
@@ -156,11 +165,21 @@ export const quickBooksService = {
         })
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error('Failed to exchange code for token');
+        const errorText = await response.text();
+        console.error('❌ Error response:', errorText);
+        throw new Error(`Failed to exchange code for token: ${response.status} ${response.statusText}`);
       }
 
       const tokenData = await response.json();
+      console.log('✅ Token data received:', { 
+        hasAccessToken: !!tokenData.access_token,
+        hasRefreshToken: !!tokenData.refresh_token,
+        expiresIn: tokenData.expires_in
+      });
       
       this._token = tokenData.access_token;
       this._refreshToken = tokenData.refresh_token;
@@ -175,7 +194,7 @@ export const quickBooksService = {
 
       return true;
     } catch (error) {
-      console.error('Error handling QuickBooks callback:', error);
+      console.error('❌ Error handling QuickBooks callback:', error);
       throw error;
     }
   },
