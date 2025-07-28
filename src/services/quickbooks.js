@@ -7,12 +7,16 @@
 
 // Configuration for QuickBooks API
 const QB_API_CONFIG = {
-  baseUrl: 'https://accounts.platform.intuit.com/v1/oauth2',
+  // Use OAuth 2.0 Playground for more reliable authentication
+  baseUrl: 'https://developer.intuit.com/v2/OAuth2Playground',
   apiUrl: 'https://api.intuit.com/v3/company',
   clientId: 'ABeUukPao9RA1rdByKMtbow5HSWo0L9LAyJm6H20tqHgQvX10q',
   clientSecret: 'evZIr3WqKoT0P9fdvtuPeD8qX12GMiMhCDKaFVnr',
   redirectUri: 'https://sales-commissions-systems.vercel.app/callback',
   environment: 'production',
+  // Alternative endpoints for production
+  authUrl: 'https://appcenter.intuit.com/connect/oauth2',
+  tokenUrl: 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer',
 };
 
 // QuickBooks API Client
@@ -125,14 +129,38 @@ export const quickBooksService = {
    * Start OAuth2 flow
    */
   startAuth() {
-    const authUrl = `${QB_API_CONFIG.baseUrl}/authorize?` +
-      `client_id=${QB_API_CONFIG.clientId}&` +
-      `response_type=code&` +
-      `scope=com.intuit.quickbooks.accounting com.intuit.quickbooks.payment&` +
-      `redirect_uri=${encodeURIComponent(QB_API_CONFIG.redirectUri)}&` +
-      `state=${Math.random().toString(36).substring(7)}`;
+    // Try multiple OAuth endpoints for better compatibility
+    const authUrls = [
+      // Primary endpoint
+      `${QB_API_CONFIG.authUrl}?` +
+        `client_id=${QB_API_CONFIG.clientId}&` +
+        `response_type=code&` +
+        `scope=com.intuit.quickbooks.accounting&` +
+        `redirect_uri=${encodeURIComponent(QB_API_CONFIG.redirectUri)}&` +
+        `state=${Math.random().toString(36).substring(7)}`,
+      
+      // Alternative endpoint
+      `https://accounts.platform.intuit.com/v1/oauth2/authorize?` +
+        `client_id=${QB_API_CONFIG.clientId}&` +
+        `response_type=code&` +
+        `scope=com.intuit.quickbooks.accounting&` +
+        `redirect_uri=${encodeURIComponent(QB_API_CONFIG.redirectUri)}&` +
+        `state=${Math.random().toString(36).substring(7)}`,
+      
+      // OAuth Playground endpoint
+      `https://developer.intuit.com/v2/OAuth2Playground/RedirectUrl?` +
+        `client_id=${QB_API_CONFIG.clientId}&` +
+        `response_type=code&` +
+        `scope=com.intuit.quickbooks.accounting&` +
+        `redirect_uri=${encodeURIComponent(QB_API_CONFIG.redirectUri)}&` +
+        `state=${Math.random().toString(36).substring(7)}`
+    ];
 
-    console.log('🔗 URL de autorización:', authUrl);
+    console.log('🔗 URLs de autorización disponibles:', authUrls);
+    
+    // Try the first URL, if it fails, we'll have alternatives
+    const authUrl = authUrls[0];
+    console.log('🔗 Usando URL de autorización:', authUrl);
     window.location.href = authUrl;
   },
 
@@ -146,53 +174,78 @@ export const quickBooksService = {
     try {
       console.log('🔄 Procesando callback con:', { code: code?.substring(0, 10) + '...', realmId });
       
-      const tokenUrl = `${QB_API_CONFIG.baseUrl}/tokens/bearer`;
-      const authHeader = `Basic ${btoa(`${QB_API_CONFIG.clientId}:${QB_API_CONFIG.clientSecret}`)}`;
+      // Try multiple token endpoints for better compatibility
+      const tokenUrls = [
+        QB_API_CONFIG.tokenUrl,
+        'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer',
+        'https://accounts.platform.intuit.com/v1/oauth2/tokens/bearer'
+      ];
       
-      console.log('🔗 URL de token:', tokenUrl);
+      const authHeader = `Basic ${btoa(`${QB_API_CONFIG.clientId}:${QB_API_CONFIG.clientSecret}`)}`;
       console.log('🔑 Auth header:', authHeader.substring(0, 20) + '...');
       
-      const response = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': authHeader
-        },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: code,
-          redirect_uri: QB_API_CONFIG.redirectUri
-        })
-      });
-
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
-        throw new Error(`Failed to exchange code for token: ${response.status} ${response.statusText}`);
-      }
-
-      const tokenData = await response.json();
-      console.log('✅ Token data received:', { 
-        hasAccessToken: !!tokenData.access_token,
-        hasRefreshToken: !!tokenData.refresh_token,
-        expiresIn: tokenData.expires_in
-      });
+      let lastError = null;
       
-      this._token = tokenData.access_token;
-      this._refreshToken = tokenData.refresh_token;
-      this._tokenExpiry = new Date().getTime() + (tokenData.expires_in * 1000);
-      this._realmId = realmId;
+      // Try each token endpoint until one works
+      for (const tokenUrl of tokenUrls) {
+        try {
+          console.log('🔗 Intentando URL de token:', tokenUrl);
+          
+          const response = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Authorization': authHeader
+            },
+            body: new URLSearchParams({
+              grant_type: 'authorization_code',
+              code: code,
+              redirect_uri: QB_API_CONFIG.redirectUri
+            })
+          });
 
-      // Store tokens
-      localStorage.setItem('qb_access_token', this._token);
-      localStorage.setItem('qb_refresh_token', this._refreshToken);
-      localStorage.setItem('qb_token_expiry', this._tokenExpiry.toString());
-      localStorage.setItem('qb_realm_id', this._realmId);
+          console.log('📡 Response status:', response.status);
+          console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
 
-      return true;
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Error response from', tokenUrl, ':', errorText);
+            lastError = new Error(`Failed to exchange code for token: ${response.status} ${response.statusText}`);
+            continue; // Try next endpoint
+          }
+
+          const tokenData = await response.json();
+          console.log('✅ Token data received:', { 
+            hasAccessToken: !!tokenData.access_token,
+            hasRefreshToken: !!tokenData.refresh_token,
+            expiresIn: tokenData.expires_in
+          });
+          
+          this._token = tokenData.access_token;
+          this._refreshToken = tokenData.refresh_token;
+          this._tokenExpiry = new Date().getTime() + (tokenData.expires_in * 1000);
+          this._realmId = realmId;
+
+          // Store tokens
+          localStorage.setItem('qb_access_token', this._token);
+          localStorage.setItem('qb_refresh_token', this._refreshToken);
+          localStorage.setItem('qb_token_expiry', this._tokenExpiry.toString());
+          localStorage.setItem('qb_realm_id', this._realmId);
+
+          console.log('✅ Authentication successful!');
+          return true;
+          
+        } catch (error) {
+          console.error('❌ Error with token URL', tokenUrl, ':', error);
+          lastError = error;
+          continue; // Try next endpoint
+        }
+      }
+      
+      // If we get here, all endpoints failed
+      console.error('❌ All token endpoints failed');
+      throw lastError || new Error('All OAuth token endpoints failed');
+      
     } catch (error) {
       console.error('❌ Error handling QuickBooks callback:', error);
       throw error;
