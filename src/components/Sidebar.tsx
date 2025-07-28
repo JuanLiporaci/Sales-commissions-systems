@@ -99,12 +99,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose, currentPath }) => {
           <FiSettings className="nav-icon" /> <span>Configuración</span>
         </button>
         
-        <button 
-          className={`sidebar-link ${activePath === '/quickbooks-test' ? 'active' : ''}`}
-          onClick={() => navegarA('/quickbooks-test')}
-        >
-          <FiDatabase className="nav-icon" /> <span>QuickBooks Test</span>
-        </button>
+            <button 
+      className={`sidebar-link ${activePath === '/quickbooks-test' ? 'active' : ''}`}
+      onClick={() => navegarA('/quickbooks-test')}
+    >
+      <FiDatabase className="nav-icon" /> <span>QuickBooks Test</span>
+    </button>
+    
+    <button 
+      className={`sidebar-link ${activePath === '/quickbooks-v3-test' ? 'active' : ''}`}
+      onClick={() => navegarA('/quickbooks-v3-test')}
+    >
+      <FiDatabase className="nav-icon" /> <span>QuickBooks v3 Test</span>
+    </button>
         
         <button 
           className={`sidebar-link ${activePath === '/admin/comisiones' ? 'active' : ''}`}

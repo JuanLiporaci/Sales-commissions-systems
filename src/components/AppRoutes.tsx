@@ -25,6 +25,7 @@ import TermsAndConditions from '../pages/TermsAndConditions';
 import PrivacyPolicy from '../pages/PrivacyPolicy';
 import QuickBooksTest from './QuickBooksTest';
 import QuickBooksDirectTest from './QuickBooksDirectTest';
+import QuickBooksV3Test from './QuickBooksV3Test';
 
 const PrivateRoute = ({ children, noLayout }: { children: React.ReactNode, noLayout?: boolean }) => {
   const { user, loading } = useAuth();
@@ -107,6 +108,7 @@ const AppRoutes = () => {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/quickbooks-test" element={<PrivateRoute noLayout={true}><QuickBooksTest /></PrivateRoute>} />
       <Route path="/quickbooks-direct-test" element={<PrivateRoute noLayout={true}><QuickBooksDirectTest /></PrivateRoute>} />
+      <Route path="/quickbooks-v3-test" element={<PrivateRoute noLayout={true}><QuickBooksV3Test /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
