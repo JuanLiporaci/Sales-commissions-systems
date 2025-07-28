@@ -7,38 +7,62 @@ const QuickBooksCallback: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        console.log('🔄 Procesando callback de QuickBooks...');
+        
+        // Obtener parámetros de la URL
         const code = searchParams.get('code');
         const realmId = searchParams.get('realmId');
         const error = searchParams.get('error');
+        const state = searchParams.get('state');
+
+        // Información de debug
+        const debugData = {
+          code: code ? 'Presente' : 'Ausente',
+          realmId: realmId ? 'Presente' : 'Ausente',
+          error: error || 'Ninguno',
+          state: state || 'Ninguno',
+          url: window.location.href
+        };
+        
+        setDebugInfo(JSON.stringify(debugData, null, 2));
+        console.log('📋 Parámetros recibidos:', debugData);
 
         if (error) {
+          console.error('❌ Error de autorización:', error);
           setError(`Error de autorización: ${error}`);
           setStatus('error');
           return;
         }
 
         if (!code || !realmId) {
-          setError('Parámetros de autorización faltantes');
+          console.error('❌ Parámetros faltantes:', { code: !!code, realmId: !!realmId });
+          setError('Parámetros de autorización faltantes. Asegúrate de que la URL de redirección esté configurada correctamente en QuickBooks.');
           setStatus('error');
           return;
         }
 
-        // Handle the OAuth callback
+        console.log('✅ Parámetros válidos, procesando autorización...');
+        
+        // Manejar el callback de OAuth
         await quickBooksService.handleCallback(code, realmId);
+        
+        console.log('✅ Autorización completada exitosamente');
         setStatus('success');
 
-        // Redirect to configuration page after a short delay
+        // Redirigir al dashboard después de un breve delay
         setTimeout(() => {
-          navigate('/configuracion');
-        }, 2000);
+          console.log('🔄 Redirigiendo al dashboard...');
+          navigate('/');
+        }, 3000);
 
       } catch (err) {
-        console.error('Error handling QuickBooks callback:', err);
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+        console.error('❌ Error procesando callback:', err);
+        setError(err instanceof Error ? err.message : 'Error desconocido al procesar la autorización');
         setStatus('error');
       }
     };
@@ -47,8 +71,8 @@ const QuickBooksCallback: React.FC = () => {
   }, [searchParams, navigate]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="max-w-lg w-full bg-white rounded-lg shadow-md p-8">
         <div className="text-center">
           {status === 'loading' && (
             <>
@@ -56,9 +80,13 @@ const QuickBooksCallback: React.FC = () => {
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
                 Conectando con QuickBooks...
               </h2>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-4">
                 Procesando la autorización de tu cuenta de QuickBooks.
               </p>
+              <div className="text-xs text-gray-500 bg-gray-100 p-3 rounded">
+                <strong>Debug Info:</strong>
+                <pre className="text-left mt-2 whitespace-pre-wrap">{debugInfo}</pre>
+              </div>
             </>
           )}
 
@@ -70,14 +98,20 @@ const QuickBooksCallback: React.FC = () => {
                 </svg>
               </div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                ¡Conexión exitosa!
+                ¡Conexión exitosa! 🎉
               </h2>
               <p className="text-gray-600 mb-4">
                 Tu cuenta de QuickBooks ha sido conectada correctamente.
               </p>
-              <p className="text-sm text-gray-500">
-                Redirigiendo a la página de configuración...
+              <p className="text-sm text-gray-500 mb-4">
+                Redirigiendo al dashboard en unos segundos...
               </p>
+              <button
+                onClick={() => navigate('/')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Ir al Dashboard
+              </button>
             </>
           )}
 
@@ -89,17 +123,31 @@ const QuickBooksCallback: React.FC = () => {
                 </svg>
               </div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                Error de conexión
+                Error de conexión ❌
               </h2>
               <p className="text-gray-600 mb-4">
                 {error || 'Ocurrió un error al conectar con QuickBooks.'}
               </p>
-              <button
-                onClick={() => navigate('/configuracion')}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Volver a Configuración
-              </button>
+              
+              <div className="text-xs text-gray-500 bg-gray-100 p-3 rounded mb-4">
+                <strong>Debug Info:</strong>
+                <pre className="text-left mt-2 whitespace-pre-wrap">{debugInfo}</pre>
+              </div>
+              
+              <div className="space-y-2">
+                <button
+                  onClick={() => navigate('/')}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors mr-2"
+                >
+                  Ir al Dashboard
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Intentar de nuevo
+                </button>
+              </div>
             </>
           )}
         </div>
