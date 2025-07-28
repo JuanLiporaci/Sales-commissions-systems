@@ -11,7 +11,7 @@ const QB_API_CONFIG = {
   apiUrl: 'https://api.intuit.com/v3/company',
   clientId: 'ABeUukPao9RA1rdByKMtbow5HSWo0L9LAyJm6H20tqHgQvX10q',
   clientSecret: 'evZIr3WqKoT0P9fdvtuPeD8qX12GMiMhCDKaFVnr',
-  redirectUri: 'https://sales-commissions-systems.vercel.app/auth/quickbooks/callback',
+  redirectUri: 'https://sales-commissions-systems.vercel.app/callback',
   environment: 'production',
 };
 

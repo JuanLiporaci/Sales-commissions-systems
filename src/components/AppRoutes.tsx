@@ -93,7 +93,7 @@ const AppRoutes = () => {
       <Route path="/finanzas" element={<PrivateRoute noLayout={true}><MetricasFinancierasRedirect /></PrivateRoute>} />
       <Route path="/metricas" element={<PrivateRoute noLayout={true}><MetricasFinancierasRedirect /></PrivateRoute>} />
       <Route path="/configuracion" element={<PrivateRoute noLayout={true}><Configuracion /></PrivateRoute>} />
-      <Route path="/auth/quickbooks/callback" element={<QuickBooksCallback />} />
+      <Route path="/callback" element={<QuickBooksCallback />} />
       <Route path="/admin" element={<PrivateRoute noLayout={true}><AdminLayout /></PrivateRoute>}>
         <Route index element={<AdminDashboard />} />
         <Route path="metricas-financieras" element={<MetricasFinancieras />} />
