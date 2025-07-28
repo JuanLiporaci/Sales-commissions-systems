@@ -20,8 +20,10 @@ import Reportes from '../pages/Reportes';
 import AdminLayout from './AdminLayout';
 import DespachosAdmin from '../pages/DespachosAdmin';
 import AdminComisiones from '../pages/AdminComisiones';
+import Despachos from '../pages/Despachos';
 import TermsAndConditions from '../pages/TermsAndConditions';
 import PrivacyPolicy from '../pages/PrivacyPolicy';
+import QuickBooksTest from './QuickBooksTest';
 
 const PrivateRoute = ({ children, noLayout }: { children: React.ReactNode, noLayout?: boolean }) => {
   const { user, loading } = useAuth();
@@ -102,6 +104,7 @@ const AppRoutes = () => {
       <Route path="/reportes" element={<PrivateRoute><Reportes /></PrivateRoute>} />
       <Route path="/terms" element={<TermsAndConditions />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/quickbooks-test" element={<PrivateRoute noLayout={true}><QuickBooksTest /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
