@@ -22,11 +22,8 @@ const QB_API_CONFIG = {
   // Environment
   environment: 'production',
   
-  // Scopes for production
-  scopes: [
-    'com.intuit.quickbooks.accounting',
-    'com.intuit.quickbooks.payment'
-  ].join(' ')
+  // Scopes for production - using basic accounting scope only
+  scopes: 'com.intuit.quickbooks.accounting'
 };
 
 // QuickBooks API Client
