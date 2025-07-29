@@ -199,46 +199,32 @@ export const quickBooksService = {
       // Clear stored state
       sessionStorage.removeItem('qb_oauth_state');
       
-      // Exchange authorization code for access token
-      const tokenUrl = QB_API_CONFIG.tokenUrl;
-      const authHeader = `Basic ${btoa(`${QB_API_CONFIG.clientId}:${QB_API_CONFIG.clientSecret}`)}`;
+      // Use our proxy API to exchange authorization code for access token
+      console.log('🔗 Usando proxy API para intercambio de tokens...');
       
-      console.log('🔗 Token URL:', tokenUrl);
-      console.log('🔑 Auth header:', authHeader.substring(0, 20) + '...');
-      
-      const response = await fetch(tokenUrl, {
+      const response = await fetch('/api/quickbooks-token', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': authHeader,
+          'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
+        body: JSON.stringify({
           code: code,
           redirect_uri: QB_API_CONFIG.redirectUri
         })
       });
 
       console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Token exchange error:', errorText);
-        
-        // Try to parse error response
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch (e) {
-          errorData = { error: 'Unknown error', error_description: errorText };
-        }
-        
-        throw new Error(`Token exchange failed: ${errorData.error} - ${errorData.error_description}`);
+        const errorData = await response.json();
+        console.error('❌ Proxy API error:', errorData);
+        throw new Error(`Token exchange failed: ${errorData.error} - ${errorData.details?.error_description || 'Unknown error'}`);
       }
 
-      const tokenData = await response.json();
+      const result = await response.json();
+      const tokenData = result.data;
+      
       console.log('✅ Token data received:', { 
         hasAccessToken: !!tokenData.access_token,
         hasRefreshToken: !!tokenData.refresh_token,
@@ -281,7 +267,7 @@ export const quickBooksService = {
    */
   async refreshToken() {
     try {
-      const response = await fetch(`${QB_API_CONFIG.baseUrl}/tokens/bearer`, {
+      const response = await fetch(QB_API_CONFIG.tokenUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
