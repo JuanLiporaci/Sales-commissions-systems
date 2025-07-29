@@ -7,58 +7,115 @@ const QuickBooksDataDisplay: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isConnected, setIsConnected] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
+    console.log('🔄 QuickBooksDataDisplay: useEffect ejecutado');
     checkConnectionAndLoadData();
   }, []);
 
   const checkConnectionAndLoadData = async () => {
+    console.log('🔍 Verificando conexión de QuickBooks...');
     const connected = quickBooksService.isAuthenticated();
+    console.log('🔗 Estado de conexión:', connected);
     setIsConnected(connected);
     
     if (connected) {
+      console.log('✅ Conectado, cargando datos automáticamente...');
       await loadQuickBooksData();
+    } else {
+      console.log('❌ No conectado, esperando conexión...');
     }
   };
 
   const loadQuickBooksData = async () => {
     setIsLoading(true);
     setError('');
+    setDebugInfo(null);
     
     try {
       console.log('🔄 Cargando datos de QuickBooks...');
       
+      // Verificar tokens
+      const token = localStorage.getItem('qb_access_token');
+      const realmId = localStorage.getItem('qb_realm_id');
+      
+      console.log('🔑 Token presente:', !!token);
+      console.log('🏢 Realm ID:', realmId);
+      
       // Cargar clientes y productos en paralelo
       const [customersData, productsData] = await Promise.all([
         quickBooksService.getCustomers().catch(err => {
-          console.warn('Error cargando clientes:', err);
+          console.error('❌ Error cargando clientes:', err);
           return [];
         }),
         quickBooksService.getProducts().catch(err => {
-          console.warn('Error cargando productos:', err);
+          console.error('❌ Error cargando productos:', err);
           return [];
         })
       ]);
       
+      console.log('📊 Datos recibidos:', {
+        customers: customersData.length,
+        products: productsData.length,
+        customersData: customersData.slice(0, 2), // Primeros 2 para debug
+        productsData: productsData.slice(0, 2)    // Primeros 2 para debug
+      });
+      
       setCustomers(customersData);
       setProducts(productsData);
       
-      console.log('✅ Datos de QuickBooks cargados:', {
-        customers: customersData.length,
-        products: productsData.length
+      // Guardar info de debug
+      setDebugInfo({
+        tokenPresent: !!token,
+        realmId: realmId,
+        customersCount: customersData.length,
+        productsCount: productsData.length,
+        lastUpdated: new Date().toLocaleString()
       });
+      
+      console.log('✅ Datos de QuickBooks cargados exitosamente');
       
     } catch (error) {
       console.error('❌ Error cargando datos de QuickBooks:', error);
       setError('Error cargando datos: ' + error.message);
+      setDebugInfo({
+        error: error.message,
+        lastUpdated: new Date().toLocaleString()
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleRefresh = () => {
+    console.log('🔄 Refrescando datos manualmente...');
     if (isConnected) {
       loadQuickBooksData();
+    }
+  };
+
+  const handleImportCustomers = async () => {
+    try {
+      console.log('📍 Importando clientes como ubicaciones...');
+      const locations = await quickBooksService.importCustomersAsLocations();
+      console.log('✅ Clientes importados:', locations.length);
+      alert(`✅ ${locations.length} clientes importados como ubicaciones`);
+    } catch (error) {
+      console.error('❌ Error importando clientes:', error);
+      alert('❌ Error importando clientes: ' + error.message);
+    }
+  };
+
+  const handleImportProducts = async () => {
+    try {
+      console.log('📦 Importando productos...');
+      const importedProducts = await quickBooksService.importProducts();
+      console.log('✅ Productos importados:', importedProducts.length);
+      alert(`✅ ${importedProducts.length} productos importados`);
+    } catch (error) {
+      console.error('❌ Error importando productos:', error);
+      alert('❌ Error importando productos: ' + error.message);
     }
   };
 
@@ -72,6 +129,12 @@ const QuickBooksDataDisplay: React.FC = () => {
         <p className="text-blue-700 text-sm">
           No conectado. Los datos se cargarán automáticamente cuando se conecte.
         </p>
+        <button
+          onClick={checkConnectionAndLoadData}
+          className="mt-2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+        >
+          🔄 Verificar Conexión
+        </button>
       </div>
     );
   }
@@ -97,6 +160,21 @@ const QuickBooksDataDisplay: React.FC = () => {
           Datos sincronizados automáticamente desde QuickBooks
         </p>
       </div>
+
+      {/* Debug Info */}
+      {debugInfo && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-800 mb-2">🔍 Información de Debug</h4>
+          <div className="text-sm text-gray-600">
+            <div>Token presente: {debugInfo.tokenPresent ? '✅' : '❌'}</div>
+            <div>Realm ID: {debugInfo.realmId || 'No disponible'}</div>
+            <div>Clientes: {debugInfo.customersCount || 0}</div>
+            <div>Productos: {debugInfo.productsCount || 0}</div>
+            <div>Última actualización: {debugInfo.lastUpdated}</div>
+            {debugInfo.error && <div className="text-red-600">Error: {debugInfo.error}</div>}
+          </div>
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -147,7 +225,11 @@ const QuickBooksDataDisplay: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="text-center text-gray-500">No hay clientes disponibles</div>
+              <div className="text-center text-gray-500">
+                No hay clientes disponibles
+                <br />
+                <small className="text-xs">Verifica que tengas clientes en QuickBooks</small>
+              </div>
             )}
           </div>
         </div>
@@ -196,7 +278,11 @@ const QuickBooksDataDisplay: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="text-center text-gray-500">No hay productos disponibles</div>
+              <div className="text-center text-gray-500">
+                No hay productos disponibles
+                <br />
+                <small className="text-xs">Verifica que tengas productos en QuickBooks</small>
+              </div>
             )}
           </div>
         </div>
@@ -207,13 +293,13 @@ const QuickBooksDataDisplay: React.FC = () => {
         <h4 className="font-semibold text-gray-800 mb-3">⚡ Acciones Rápidas</h4>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => quickBooksService.importCustomersAsLocations()}
+            onClick={handleImportCustomers}
             className="px-4 py-2 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition-colors"
           >
             📍 Importar Clientes como Ubicaciones
           </button>
           <button
-            onClick={() => quickBooksService.importProducts()}
+            onClick={handleImportProducts}
             className="px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
           >
             📦 Importar Productos
