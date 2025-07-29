@@ -355,8 +355,28 @@ export const quickBooksService = {
    */
   async getCustomers() {
     try {
-      const response = await this.makeRequest('/query?query=SELECT * FROM Customer WHERE Active = true ORDER BY DisplayName');
-      return response.QueryResponse.Customer || [];
+      console.log('🔄 Fetching customers via proxy API...');
+      
+      // Use our proxy API to fetch customers
+      const response = await fetch(`/api/quickbooks-data?type=customers&realmId=${this._realmId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this._token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Proxy API error for customers:', errorData);
+        throw new Error(`Failed to fetch customers: ${errorData.error}`);
+      }
+
+      const result = await response.json();
+      const customers = result.data.QueryResponse?.Customer || [];
+      
+      console.log('✅ Customers fetched successfully:', customers.length);
+      return customers;
     } catch (error) {
       console.error('Error fetching QuickBooks customers:', error);
       throw error;
@@ -369,8 +389,28 @@ export const quickBooksService = {
    */
   async getProducts() {
     try {
-      const response = await this.makeRequest('/query?query=SELECT * FROM Item WHERE Type = \'Inventory\' OR Type = \'NonInventory\' ORDER BY Name');
-      return response.QueryResponse.Item || [];
+      console.log('🔄 Fetching products via proxy API...');
+      
+      // Use our proxy API to fetch products
+      const response = await fetch(`/api/quickbooks-data?type=products&realmId=${this._realmId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this._token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Proxy API error for products:', errorData);
+        throw new Error(`Failed to fetch products: ${errorData.error}`);
+      }
+
+      const result = await response.json();
+      const products = result.data.QueryResponse?.Item || [];
+      
+      console.log('✅ Products fetched successfully:', products.length);
+      return products;
     } catch (error) {
       console.error('Error fetching QuickBooks products:', error);
       throw error;
