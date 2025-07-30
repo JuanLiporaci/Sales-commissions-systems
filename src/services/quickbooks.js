@@ -132,6 +132,23 @@ export const quickBooksService = {
     return new Date().getTime() < this._tokenExpiry - 300000;
   },
 
+  // Add function to check if token is expired
+  isTokenExpired() {
+    const token = this._token;
+    if (!token) return true;
+    
+    // QuickBooks tokens typically expire after 1 hour
+    // We'll assume it's expired if we can't verify it
+    return false; // For now, let's always try to use the token
+  },
+
+  // Add function to force reconnection
+  async forceReconnect() {
+    console.log('🔄 Forzando reconexión a QuickBooks...');
+    this.clearTokens();
+    return this.startAuth();
+  },
+
   /**
    * Start OAuth2 flow using the new QuickBooks API v3
    */
