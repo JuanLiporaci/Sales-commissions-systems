@@ -372,10 +372,10 @@ export const quickBooksService = {
    */
   async getCustomers() {
     try {
-      console.log('🔄 Fetching customers via proxy API...');
+      console.log('🔄 Fetching customers via debug API...');
       
-      // Use our proxy API to fetch customers
-      const response = await fetch(`/api/quickbooks-data?type=customers&realmId=${this._realmId}`, {
+      // Use our debug API to fetch customers
+      const response = await fetch(`/api/debug-quickbooks?type=customers&realmId=${this._realmId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this._token}`,
@@ -385,7 +385,7 @@ export const quickBooksService = {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ Proxy API error for customers:', errorData);
+        console.error('❌ Debug API error for customers:', errorData);
         throw new Error(`Failed to fetch customers: ${errorData.error}`);
       }
 
@@ -406,10 +406,10 @@ export const quickBooksService = {
    */
   async getProducts() {
     try {
-      console.log('🔄 Fetching products via proxy API...');
+      console.log('🔄 Fetching products via debug API...');
       
-      // Use our proxy API to fetch products
-      const response = await fetch(`/api/quickbooks-data?type=products&realmId=${this._realmId}`, {
+      // Use our debug API to fetch products
+      const response = await fetch(`/api/debug-quickbooks?type=products&realmId=${this._realmId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this._token}`,
@@ -419,7 +419,7 @@ export const quickBooksService = {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ Proxy API error for products:', errorData);
+        console.error('❌ Debug API error for products:', errorData);
         throw new Error(`Failed to fetch products: ${errorData.error}`);
       }
 
