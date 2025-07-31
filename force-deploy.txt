@@ -1,0 +1,4 @@
+# Force Deploy - QuickBooks Debug Endpoint
+# This file forces Vercel to redeploy with the latest changes
+# Created: $(date)
+# Purpose: Update Vercel with the new debug endpoint for QuickBooks API 
