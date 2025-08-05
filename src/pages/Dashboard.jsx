@@ -6,6 +6,7 @@ import { useAuth } from '../lib/AuthContext';
 import { logout } from '../services/auth.ts';
 import { Button } from 'react-bootstrap';
 import QuickBooksDataDisplay from '../components/QuickBooksDataDisplay';
+import QuickBooksDebugConsole from '../components/QuickBooksDebugConsole';
 
 const Dashboard = () => {
   const [ventas, setVentas] = useState([]);
