@@ -116,6 +116,54 @@ const QuickBooksDebugConsole: React.FC = () => {
     }
   };
 
+  const testV2Endpoint = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🔍 Testing V2 endpoint directly...');
+      
+      const timestamp = Date.now();
+      const response = await fetch(`/api/quickbooks-final-v2?type=companyinfo&realmId=${quickBooksService._realmId}&_t=${timestamp}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${quickBooksService._token}`,
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      console.log('📊 V2 Response status:', response.status);
+      
+      const responseText = await response.text();
+      console.log('📊 V2 Raw response:', responseText);
+      
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        responseData = { rawText: responseText };
+      }
+      
+      setDebugData({
+        type: 'v2_test',
+        url: `/api/quickbooks-final-v2?type=companyinfo&realmId=${quickBooksService._realmId}`,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        data: responseData,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (err: any) {
+      console.error('❌ V2 test failed:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm">
       <h3 className="text-lg font-bold mb-4 text-white">QuickBooks Debug Console</h3>
@@ -135,6 +183,14 @@ const QuickBooksDebugConsole: React.FC = () => {
           className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs"
         >
           Test Simple
+        </button>
+        
+        <button
+          onClick={testV2Endpoint}
+          disabled={isLoading}
+          className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-xs font-bold"
+        >
+          Test V2 API
         </button>
         
         <button
