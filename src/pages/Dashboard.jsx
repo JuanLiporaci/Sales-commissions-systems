@@ -355,6 +355,11 @@ const Dashboard = () => {
             </div>
             <div className="panel-body">
               <QuickBooksDataDisplay />
+              
+              {/* Debug Console - Solo para desarrollo */}
+              <div className="mt-4">
+                <QuickBooksDebugConsole />
+              </div>
             </div>
           </div>
 
