@@ -216,10 +216,10 @@ export const quickBooksService = {
       // Clear stored state
       sessionStorage.removeItem('qb_oauth_state');
       
-      // Use our proxy API to exchange authorization code for access token
-      console.log('🔗 Usando proxy API para intercambio de tokens...');
+      // Use our final unified API to exchange authorization code for access token
+      console.log('🔗 Usando final API para intercambio de tokens...');
       
-      const response = await fetch('/api/quickbooks-token', {
+      const response = await fetch('/api/quickbooks-final?action=token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -372,10 +372,14 @@ export const quickBooksService = {
    */
   async getCustomers() {
     try {
-      console.log('🔄 Fetching customers via debug API...');
+      console.log('🔄 Fetching customers via final API...');
       
-      // Use our debug API to fetch customers
-      const response = await fetch(`/api/debug-quickbooks-v2?type=customers&realmId=${this._realmId}`, {
+      if (!this._token || !this._realmId) {
+        throw new Error('QuickBooks no está autenticado');
+      }
+      
+      // Use our final unified API to fetch customers
+      const response = await fetch(`/api/quickbooks-final?type=customers&realmId=${this._realmId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this._token}`,
@@ -383,19 +387,26 @@ export const quickBooksService = {
         }
       });
 
+      console.log('📊 Response status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ Debug API error for customers:', errorData);
-        throw new Error(`Failed to fetch customers: ${errorData.error}`);
+        const errorData = await response.text();
+        console.error('❌ Final API error for customers:', errorData);
+        throw new Error(`Failed to fetch customers: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
-      const customers = result.data.QueryResponse?.Customer || [];
+      
+      if (!result.success) {
+        throw new Error(`API returned error: ${result.error}`);
+      }
+
+      const customers = result.data.QueryResponse?.Customer || result.data.items || [];
       
       console.log('✅ Customers fetched successfully:', customers.length);
       return customers;
     } catch (error) {
-      console.error('Error fetching QuickBooks customers:', error);
+      console.error('❌ Error fetching QuickBooks customers:', error);
       throw error;
     }
   },
@@ -406,10 +417,14 @@ export const quickBooksService = {
    */
   async getProducts() {
     try {
-      console.log('🔄 Fetching products via debug API...');
+      console.log('🔄 Fetching products via final API...');
       
-      // Use our debug API to fetch products
-      const response = await fetch(`/api/debug-quickbooks-v2?type=products&realmId=${this._realmId}`, {
+      if (!this._token || !this._realmId) {
+        throw new Error('QuickBooks no está autenticado');
+      }
+      
+      // Use our final unified API to fetch products
+      const response = await fetch(`/api/quickbooks-final?type=products&realmId=${this._realmId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this._token}`,
@@ -417,19 +432,26 @@ export const quickBooksService = {
         }
       });
 
+      console.log('📊 Response status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ Debug API error for products:', errorData);
-        throw new Error(`Failed to fetch products: ${errorData.error}`);
+        const errorData = await response.text();
+        console.error('❌ Final API error for products:', errorData);
+        throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
-      const products = result.data.QueryResponse?.Item || [];
+      
+      if (!result.success) {
+        throw new Error(`API returned error: ${result.error}`);
+      }
+
+      const products = result.data.QueryResponse?.Item || result.data.items || [];
       
       console.log('✅ Products fetched successfully:', products.length);
       return products;
     } catch (error) {
-      console.error('Error fetching QuickBooks products:', error);
+      console.error('❌ Error fetching QuickBooks products:', error);
       throw error;
     }
   },

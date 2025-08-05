@@ -1,313 +1,321 @@
 import React, { useState, useEffect } from 'react';
 import { quickBooksService } from '../services/quickbooks.js';
 
+interface QuickBooksData {
+  customers: any[];
+  products: any[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+interface Customer {
+  Id: string;
+  Name?: string;
+  DisplayName?: string;
+  FullyQualifiedName?: string;
+  CompanyName?: string;
+  BillAddr?: {
+    Line1?: string;
+    City?: string;
+    CountrySubDivisionCode?: string;
+    PostalCode?: string;
+  };
+  PrimaryEmailAddr?: {
+    Address?: string;
+  };
+  PrimaryPhone?: {
+    FreeFormNumber?: string;
+  };
+}
+
+interface Product {
+  Id: string;
+  Name: string;
+  Description?: string;
+  UnitPrice?: number;
+  PurchaseCost?: number;
+  Type: string;
+  Active: boolean;
+  Sku?: string;
+  QtyOnHand?: number;
+}
+
 const QuickBooksDataDisplay: React.FC = () => {
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [debugInfo, setDebugInfo] = useState(null);
+  const [data, setData] = useState<QuickBooksData>({
+    customers: [],
+    products: [],
+    isLoading: false,
+    error: null
+  });
+
+  const [connectionStatus, setConnectionStatus] = useState({
+    isConnected: false,
+    realmId: null,
+    hasToken: false
+  });
 
   useEffect(() => {
-    console.log('🔄 QuickBooksDataDisplay: useEffect ejecutado');
-    checkConnectionAndLoadData();
+    checkConnection();
+    if (quickBooksService.isAuthenticated()) {
+      loadData();
+    }
   }, []);
 
-  const checkConnectionAndLoadData = async () => {
-    console.log('🔍 Verificando conexión de QuickBooks...');
-    const connected = quickBooksService.isAuthenticated();
-    console.log('🔗 Estado de conexión:', connected);
-    setIsConnected(connected);
+  const checkConnection = () => {
+    const isConnected = quickBooksService.isAuthenticated();
+    const realmId = quickBooksService._realmId;
+    const hasToken = !!quickBooksService._token;
     
-    if (connected) {
-      console.log('✅ Conectado, cargando datos automáticamente...');
-      await loadQuickBooksData();
-    } else {
-      console.log('❌ No conectado, esperando conexión...');
-    }
+    setConnectionStatus({
+      isConnected,
+      realmId,
+      hasToken
+    });
   };
 
-  const loadQuickBooksData = async () => {
-    setIsLoading(true);
-    setError('');
-    setDebugInfo(null);
-    
+  const loadData = async () => {
+    if (!quickBooksService.isAuthenticated()) {
+      setData(prev => ({
+        ...prev,
+        error: 'QuickBooks no está conectado. Por favor autoriza la conexión.'
+      }));
+      return;
+    }
+
+    setData(prev => ({
+      ...prev,
+      isLoading: true,
+      error: null
+    }));
+
     try {
       console.log('🔄 Cargando datos de QuickBooks...');
       
-      // Verificar tokens
-      const token = localStorage.getItem('qb_access_token');
-      const realmId = localStorage.getItem('qb_realm_id');
-      
-      console.log('🔑 Token presente:', !!token);
-      console.log('🏢 Realm ID:', realmId);
-      
       // Cargar clientes y productos en paralelo
-      const [customersData, productsData] = await Promise.all([
+      const [customers, products] = await Promise.all([
         quickBooksService.getCustomers().catch(err => {
-          console.error('❌ Error cargando clientes:', err);
+          console.error('Error loading customers:', err);
           return [];
         }),
         quickBooksService.getProducts().catch(err => {
-          console.error('❌ Error cargando productos:', err);
+          console.error('Error loading products:', err);
           return [];
         })
       ]);
-      
-      console.log('📊 Datos recibidos:', {
-        customers: customersData.length,
-        products: productsData.length,
-        customersData: customersData.slice(0, 2), // Primeros 2 para debug
-        productsData: productsData.slice(0, 2)    // Primeros 2 para debug
+
+      setData({
+        customers,
+        products,
+        isLoading: false,
+        error: null
       });
-      
-      setCustomers(customersData);
-      setProducts(productsData);
-      
-      // Guardar info de debug
-      setDebugInfo({
-        tokenPresent: !!token,
-        realmId: realmId,
-        customersCount: customersData.length,
-        productsCount: productsData.length,
-        lastUpdated: new Date().toLocaleString()
+
+      console.log('✅ Datos cargados:', { 
+        customersCount: customers.length, 
+        productsCount: products.length 
       });
-      
-      console.log('✅ Datos de QuickBooks cargados exitosamente');
-      
-    } catch (error) {
-      console.error('❌ Error cargando datos de QuickBooks:', error);
-      setError('Error cargando datos: ' + error.message);
-      setDebugInfo({
-        error: error.message,
-        lastUpdated: new Date().toLocaleString()
-      });
-    } finally {
-      setIsLoading(false);
+
+    } catch (error: any) {
+      console.error('❌ Error loading QuickBooks data:', error);
+      setData(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error.message || 'Error desconocido al cargar datos'
+      }));
+    }
+  };
+
+  const handleConnect = () => {
+    try {
+      quickBooksService.startAuth();
+    } catch (error: any) {
+      setData(prev => ({
+        ...prev,
+        error: error.message || 'Error al iniciar conexión'
+      }));
     }
   };
 
   const handleRefresh = () => {
-    console.log('🔄 Refrescando datos manualmente...');
-    if (isConnected) {
-      loadQuickBooksData();
-    }
+    checkConnection();
+    loadData();
   };
 
-  const handleImportCustomers = async () => {
-    try {
-      console.log('📍 Importando clientes como ubicaciones...');
-      const locations = await quickBooksService.importCustomersAsLocations();
-      console.log('✅ Clientes importados:', locations.length);
-      alert(`✅ ${locations.length} clientes importados como ubicaciones`);
-    } catch (error) {
-      console.error('❌ Error importando clientes:', error);
-      alert('❌ Error importando clientes: ' + error.message);
-    }
+  const handleDisconnect = () => {
+    quickBooksService.logout();
+    setConnectionStatus({
+      isConnected: false,
+      realmId: null,
+      hasToken: false
+    });
+    setData({
+      customers: [],
+      products: [],
+      isLoading: false,
+      error: null
+    });
   };
-
-  const handleImportProducts = async () => {
-    try {
-      console.log('📦 Importando productos...');
-      const importedProducts = await quickBooksService.importProducts();
-      console.log('✅ Productos importados:', importedProducts.length);
-      alert(`✅ ${importedProducts.length} productos importados`);
-    } catch (error) {
-      console.error('❌ Error importando productos:', error);
-      alert('❌ Error importando productos: ' + error.message);
-    }
-  };
-
-  if (!isConnected) {
-    return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
-          <h3 className="font-semibold text-blue-800">QuickBooks</h3>
-        </div>
-        <p className="text-blue-700 text-sm">
-          No conectado. Los datos se cargarán automáticamente cuando se conecte.
-        </p>
-        <button
-          onClick={checkConnectionAndLoadData}
-          className="mt-2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-        >
-          🔄 Verificar Conexión
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-            <h3 className="font-semibold text-green-800">QuickBooks Conectado</h3>
+      {/* Estado de conexión */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Estado de QuickBooks</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${connectionStatus.isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-sm font-medium">
+              {connectionStatus.isConnected ? 'Conectado' : 'Desconectado'}
+            </span>
           </div>
+          
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${connectionStatus.hasToken ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-sm font-medium">
+              {connectionStatus.hasToken ? 'Token válido' : 'Sin token'}
+            </span>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${connectionStatus.realmId ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-sm font-medium">
+              {connectionStatus.realmId ? `Empresa: ${connectionStatus.realmId}` : 'Sin empresa'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex space-x-2">
+          {!connectionStatus.isConnected ? (
+            <button
+              onClick={handleConnect}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Conectar QuickBooks
+            </button>
+          ) : (
+            <button
+              onClick={handleDisconnect}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Desconectar
+            </button>
+          )}
+          
           <button
             onClick={handleRefresh}
-            disabled={isLoading}
-            className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-400 transition-colors"
+            disabled={data.isLoading}
+            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
           >
-            {isLoading ? '⏳ Cargando...' : '🔄 Actualizar'}
+            {data.isLoading ? 'Cargando...' : 'Actualizar'}
           </button>
         </div>
-        <p className="text-green-700 text-sm mt-1">
-          Datos sincronizados automáticamente desde QuickBooks
-        </p>
       </div>
 
-      {/* Debug Info */}
-      {debugInfo && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h4 className="font-semibold text-gray-800 mb-2">🔍 Información de Debug</h4>
-          <div className="text-sm text-gray-600">
-            <div>Token presente: {debugInfo.tokenPresent ? '✅' : '❌'}</div>
-            <div>Realm ID: {debugInfo.realmId || 'No disponible'}</div>
-            <div>Clientes: {debugInfo.customersCount || 0}</div>
-            <div>Productos: {debugInfo.productsCount || 0}</div>
-            <div>Última actualización: {debugInfo.lastUpdated}</div>
-            {debugInfo.error && <div className="text-red-600">Error: {debugInfo.error}</div>}
-          </div>
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
+      {/* Errores */}
+      {data.error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h4 className="font-semibold text-red-800 mb-2">❌ Error</h4>
-          <p className="text-red-700 text-sm">{error}</p>
+          <div className="flex">
+            <div className="text-red-400">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <p className="text-sm text-red-700 mt-1">{data.error}</p>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Datos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Clientes */}
-        <div className="bg-white rounded-lg shadow border">
-          <div className="p-4 border-b">
-            <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-              👥 Clientes de QuickBooks
-              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                {customers.length}
+      {/* Estadísticas */}
+      {connectionStatus.isConnected && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">Clientes</h3>
+              <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded">
+                {data.customers.length}
               </span>
-            </h4>
-          </div>
-          <div className="p-4">
-            {isLoading ? (
-              <div className="text-center text-gray-500">⏳ Cargando clientes...</div>
-            ) : customers.length > 0 ? (
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {customers.slice(0, 5).map((customer, index) => (
-                  <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="font-medium text-gray-800">
-                      {customer.DisplayName || `Cliente ${index + 1}`}
+            </div>
+            
+            {data.customers.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {data.customers.slice(0, 5).map((customer: Customer) => (
+                  <div key={customer.Id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {customer.DisplayName || customer.Name || customer.FullyQualifiedName || 'Sin nombre'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {customer.BillAddr?.City || 'Sin ciudad'}, {customer.BillAddr?.CountrySubDivisionCode || 'Sin estado'}
+                      </p>
                     </div>
-                    {customer.PrimaryEmailAddr && (
-                      <div className="text-sm text-gray-600">
-                        📧 {customer.PrimaryEmailAddr.Address}
-                      </div>
-                    )}
-                    {customer.PrimaryPhone && (
-                      <div className="text-sm text-gray-600">
-                        📞 {customer.PrimaryPhone.FreeFormNumber}
-                      </div>
-                    )}
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">{customer.PrimaryEmailAddr?.Address || 'Sin email'}</p>
+                    </div>
                   </div>
                 ))}
-                {customers.length > 5 && (
-                  <div className="text-center text-gray-500 text-sm">
-                    ... y {customers.length - 5} más
-                  </div>
+                {data.customers.length > 5 && (
+                  <p className="text-xs text-gray-500 text-center pt-2">
+                    ... y {data.customers.length - 5} más
+                  </p>
                 )}
               </div>
-            ) : (
-              <div className="text-center text-gray-500">
-                No hay clientes disponibles
-                <br />
-                <small className="text-xs">Verifica que tengas clientes en QuickBooks</small>
+            )}
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">Productos</h3>
+              <span className="bg-green-100 text-green-800 text-sm font-medium px-2.5 py-0.5 rounded">
+                {data.products.length}
+              </span>
+            </div>
+            
+            {data.products.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {data.products.slice(0, 5).map((product: Product) => (
+                  <div key={product.Id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{product.Name}</p>
+                      <p className="text-xs text-gray-500">
+                        {product.Type} {product.Sku ? `• SKU: ${product.Sku}` : ''}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-900">
+                        ${product.UnitPrice?.toFixed(2) || '0.00'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {product.QtyOnHand !== undefined ? `Stock: ${product.QtyOnHand}` : 'Sin stock'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {data.products.length > 5 && (
+                  <p className="text-xs text-gray-500 text-center pt-2">
+                    ... y {data.products.length - 5} más
+                  </p>
+                )}
               </div>
             )}
           </div>
         </div>
+      )}
 
-        {/* Productos */}
-        <div className="bg-white rounded-lg shadow border">
-          <div className="p-4 border-b">
-            <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-              📦 Productos de QuickBooks
-              <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
-                {products.length}
-              </span>
-            </h4>
-          </div>
-          <div className="p-4">
-            {isLoading ? (
-              <div className="text-center text-gray-500">⏳ Cargando productos...</div>
-            ) : products.length > 0 ? (
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {products.slice(0, 5).map((product, index) => (
-                  <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="font-medium text-gray-800">
-                      {product.Name || `Producto ${index + 1}`}
-                    </div>
-                    {product.Description && (
-                      <div className="text-sm text-gray-600">
-                        📝 {product.Description}
-                      </div>
-                    )}
-                    {product.UnitPrice && (
-                      <div className="text-sm text-green-600 font-medium">
-                        💰 ${product.UnitPrice}
-                      </div>
-                    )}
-                    {product.Sku && (
-                      <div className="text-sm text-gray-600">
-                        🏷️ SKU: {product.Sku}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {products.length > 5 && (
-                  <div className="text-center text-gray-500 text-sm">
-                    ... y {products.length - 5} más
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center text-gray-500">
-                No hay productos disponibles
-                <br />
-                <small className="text-xs">Verifica que tengas productos en QuickBooks</small>
-              </div>
-            )}
+      {/* Estado de carga */}
+      {data.isLoading && (
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <span className="text-gray-600">Cargando datos de QuickBooks...</span>
           </div>
         </div>
-      </div>
-
-      {/* Acciones rápidas */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h4 className="font-semibold text-gray-800 mb-3">⚡ Acciones Rápidas</h4>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleImportCustomers}
-            className="px-4 py-2 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition-colors"
-          >
-            📍 Importar Clientes como Ubicaciones
-          </button>
-          <button
-            onClick={handleImportProducts}
-            className="px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
-          >
-            📦 Importar Productos
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
 
-export default QuickBooksDataDisplay; 
+export default QuickBooksDataDisplay;

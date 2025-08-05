@@ -1,5 +1,19 @@
 {
+  "functions": {
+    "api/quickbooks-token.js": {
+      "maxDuration": 30
+    },
+    "api/quickbooks-data.js": {
+      "maxDuration": 30
+    },
+    "api/debug-quickbooks-v2.js": {
+      "maxDuration": 30
+    },
+    "api/test-simple.js": {
+      "maxDuration": 10
+    }
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ]
-} 
+}
