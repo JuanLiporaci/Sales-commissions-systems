@@ -347,6 +347,16 @@ const Dashboard = () => {
           </div>
           
           {/* Quick Actions */}
+          {/* Datos de QuickBooks */}
+          <div className="dashboard-panel mt-4">
+            <div className="panel-header">
+              <h3 className="mb-0">QuickBooks</h3>
+            </div>
+            <div className="panel-body">
+              <QuickBooksDataDisplay />
+            </div>
+          </div>
+
           <div className="dashboard-panel mt-4">
             <div className="panel-header">
               <h3 className="mb-0">Acciones Rápidas</h3>
