@@ -45,7 +45,7 @@ const QuickBooksDebugConsole: React.FC = () => {
     try {
       console.log(`🔍 Testing API endpoint: ${endpoint}`);
       
-      const url = `/api/quickbooks-final?type=${endpoint}&realmId=${quickBooksService._realmId}`;
+      const url = `/api/quickbooks-final-v2?type=${endpoint}&realmId=${quickBooksService._realmId}`;
       console.log('🔗 Full URL:', url);
       
       const response = await fetch(url, {

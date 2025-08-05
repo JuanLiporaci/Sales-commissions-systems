@@ -216,10 +216,10 @@ export const quickBooksService = {
       // Clear stored state
       sessionStorage.removeItem('qb_oauth_state');
       
-      // Use our final unified API to exchange authorization code for access token
-      console.log('🔗 Usando final API para intercambio de tokens...');
+      // Use our final unified API v2 to exchange authorization code for access token
+      console.log('🔗 Usando final API v2 para intercambio de tokens...');
       
-      const response = await fetch('/api/quickbooks-final?action=token', {
+      const response = await fetch('/api/quickbooks-final-v2?action=token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -378,8 +378,8 @@ export const quickBooksService = {
         throw new Error('QuickBooks no está autenticado');
       }
       
-      // Use our final unified API to fetch customers
-      const response = await fetch(`/api/quickbooks-final?type=customers&realmId=${this._realmId}`, {
+      // Use our final unified API v2 to fetch customers
+      const response = await fetch(`/api/quickbooks-final-v2?type=customers&realmId=${this._realmId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this._token}`,
@@ -423,8 +423,8 @@ export const quickBooksService = {
         throw new Error('QuickBooks no está autenticado');
       }
       
-      // Use our final unified API to fetch products
-      const response = await fetch(`/api/quickbooks-final?type=products&realmId=${this._realmId}`, {
+      // Use our final unified API v2 to fetch products
+      const response = await fetch(`/api/quickbooks-final-v2?type=products&realmId=${this._realmId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this._token}`,
